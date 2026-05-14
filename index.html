@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>拾级汉语 · Ten-Level Chinese Flashcards (Level 2)</title>
-<meta name="description" content="A clean, Anki-style flashcard app for the Level 2 Integrated Chinese textbook. 20 lessons, ~540 words, ~330 sentences. Local-only.">
+<meta name="description" content="A clean, Anki-style flashcard app for the Level 2 Integrated Chinese textbook. 20 lessons, ~569 words, ~362 sentences, ~400 characters. Local-only.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -36,7 +36,7 @@
     <div class="hero">
       <div class="hero__eyebrow">拾级汉语 · 综合课本 · 第2级</div>
       <h1 class="hero__title">Flashcards for every lesson.</h1>
-      <p class="hero__lede">540 words and 330 example sentences from the Level 2 Integrated Textbook, organised by lesson. Front shows Chinese — flip for pinyin and English.</p>
+      <p class="hero__lede" id="heroLede">Vocabulary, sentences, and characters from the Level 2 Integrated Textbook, organised by lesson. Front shows Chinese — flip for pinyin and English.</p>
       <div class="hero__stats" aria-label="Progress summary">
         <div class="stat"><span class="stat__num" id="statSeen">0</span><span class="stat__label">cards seen</span></div>
         <div class="stat"><span class="stat__num" id="statKnown">0</span><span class="stat__label">marked known</span></div>
@@ -222,10 +222,6 @@
           <option value="l" selected>Large</option>
           <option value="xl">Extra large</option>
         </select>
-      </label>
-      <label class="setting setting--inline">
-        <span class="setting__label">Auto-flip on grade</span>
-        <input type="checkbox" id="setAutoFlip" class="setting__checkbox">
       </label>
       <label class="setting setting--inline">
         <span class="setting__label">Reduce motion</span>

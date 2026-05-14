@@ -688,6 +688,95 @@ body {
 }
 .card__pos:empty { display: none; }
 
+/* Character-mode card: tighter back with structured compound list */
+.card--character .card__chinese {
+  font-size: clamp(7rem, 18vw, 13rem);
+  line-height: 1;
+}
+.card--character .card__pinyin {
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  margin-bottom: var(--s-3);
+}
+.card--character .card__english {
+  text-align: left;
+  margin-top: var(--s-3);
+  max-width: 100%;
+  width: 100%;
+  font-size: var(--t-md);
+  font-weight: 400;
+}
+.char-back__py {
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  margin-bottom: var(--s-4);
+  text-align: center;
+}
+.char-back__section {
+  margin-top: var(--s-3);
+}
+.char-back__label {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: var(--s-2);
+}
+.char-back__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.char-back__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--rule-soft);
+}
+.char-back__zh {
+  font-family: var(--font-zh);
+  font-weight: 600;
+  font-size: var(--t-lg);
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.char-back__alt {
+  font-size: var(--t-sm);
+  color: var(--ink-mute);
+  margin-top: 2px;
+}
+.char-back__section--empty {
+  color: var(--ink-mute);
+  text-align: center;
+  font-style: italic;
+  font-size: var(--t-sm);
+  padding: var(--s-3);
+}
+
+/* Front: en — when the user inverted the card, English goes on front.
+   Don't render English in the giant serif slot. */
+.card--front-en .card__chinese {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  max-width: 26ch;
+}
+.card--front-en .card__face--back .card__english {
+  /* On the back, the Chinese is what flips into the english slot */
+  font-family: var(--font-zh);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  letter-spacing: 0.02em;
+}
+
 /* -- action row --------------------------------------------------------- */
 .action-row {
   display: grid;

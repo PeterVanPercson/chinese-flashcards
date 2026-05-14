@@ -38,7 +38,7 @@ function loadSettings() {
   return defaultSettings();
 }
 function defaultSettings() {
-  return { theme: 'auto', front: 'zh', size: 'l', autoFlip: false, reduceMotion: false };
+  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false };
 }
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
@@ -116,6 +116,13 @@ function routeFromHash() {
 
 /* ---------------------- home view ---------------------- */
 function renderHome() {
+  // Update lede with REAL totals from the data file (not hardcoded numbers).
+  const lede = $('#heroLede');
+  if (lede && state.data.meta) {
+    const m = state.data.meta;
+    lede.textContent = `${m.vocab_total} words, ${m.sentence_total} example sentences, and ${m.character_total} characters from the Level 2 Integrated Textbook, organised by lesson. Front shows Chinese — flip for pinyin and English.`;
+  }
+
   // Stats
   const stats = computeOverallStats();
   $('#statSeen').textContent  = stats.seen;
@@ -214,6 +221,7 @@ function startStudy() {
 
   state.index = 0;
   state.flipped = false;
+  state.finished = false;
   state.reviewed.clear();
   state.grades = {};
 
@@ -244,14 +252,23 @@ function buildDeck(L, mode) {
     }));
   }
   if (mode === 'characters') {
-    return (L.characters || []).map((c, i) => ({
-      key: `L${L.id}.c.${i}`,
-      type: 'character',
-      front_zh: c,
-      pinyin: '',
-      english: '— learn to read & write',
-      pos: '',
-    }));
+    const compounds = L.char_compounds || {};
+    const examples  = L.char_examples  || {};
+    const charPy    = L.char_pinyin    || {};
+    return (L.characters || []).map((c, i) => {
+      const comps = compounds[c] || [];
+      const exs   = examples[c]  || [];
+      return {
+        key: `L${L.id}.c.${i}`,
+        type: 'character',
+        front_zh: c,
+        pinyin: charPy[c] || '',
+        english: '',          // character cards have a custom back; left blank
+        pos: '',
+        compounds: comps,
+        examples: exs,
+      };
+    });
   }
   return [];
 }
@@ -274,31 +291,86 @@ function renderCard() {
 
   const card = state.deck[state.index];
   const cardEl = $('#card');
-  cardEl.classList.remove('is-flipped', 'is-marked-again', 'is-marked-good', 'card--sentence');
-  cardEl.classList.remove('card--size-m', 'card--size-l', 'card--size-xl');
+  cardEl.classList.remove(
+    'is-flipped', 'is-marked-again', 'is-marked-good',
+    'card--sentence', 'card--character',
+    'card--front-en',
+    'card--size-m', 'card--size-l', 'card--size-xl'
+  );
   cardEl.classList.add(`card--size-${state.settings.size}`);
-  if (card.type === 'sentence' || (card.type === 'vocab' && card.front_zh.length > 4)) {
+  if (card.type === 'character') {
+    cardEl.classList.add('card--character');
+  } else if (card.type === 'sentence' || (card.type === 'vocab' && card.front_zh.length > 4)) {
     cardEl.classList.add('card--sentence');
   }
   cardEl.setAttribute('aria-pressed', 'false');
   state.flipped = false;
 
-  // Front/back content respecting settings.front
-  const showZhFirst = state.settings.front === 'zh';
-  if (showZhFirst) {
+  // Character cards: custom back with compounds & examples (always Chinese-front).
+  if (card.type === 'character') {
     $('#cardChinese').textContent = card.front_zh;
     $('#cardPinyin').textContent  = card.pinyin || '';
-    $('#cardEnglish').textContent = card.english || '';
+    $('#cardEnglish').innerHTML   = renderCharBack(card);
+    $('#cardPos').textContent = '读写字';
   } else {
-    $('#cardChinese').textContent = card.english || '—';
-    $('#cardPinyin').textContent  = card.pinyin || '';
-    $('#cardEnglish').textContent = card.front_zh;
+    const showZhFirst = state.settings.front === 'zh';
+    if (showZhFirst) {
+      $('#cardChinese').textContent = card.front_zh;
+      $('#cardPinyin').textContent  = card.pinyin || '';
+      $('#cardEnglish').textContent = card.english || '';
+    } else {
+      // Don't force English into the giant serif slot — swap roles & style.
+      cardEl.classList.add('card--front-en');
+      $('#cardChinese').textContent = card.english || '—';
+      $('#cardPinyin').textContent  = card.pinyin || '';
+      $('#cardEnglish').textContent = card.front_zh;
+    }
+    $('#cardPos').textContent = card.pos || '';
   }
-  $('#cardPos').textContent = card.pos || '';
 
   $('#studyPos').textContent = state.index + 1;
   const pct = ((state.reviewed.size) / state.deck.length) * 100;
   $('#progressBar').style.width = pct + '%';
+}
+
+function renderCharBack(card) {
+  // pinyin is already rendered in #cardPinyin — don't duplicate it here
+  const compounds = (card.compounds || []).slice(0, 4);
+  const examples  = (card.examples  || []).slice(0, 2);
+
+  let html = '';
+
+  if (compounds.length) {
+    html += `<div class="char-back__section">
+      <div class="char-back__label">Appears in</div>
+      <ul class="char-back__list">${compounds.map((c) => `
+        <li>
+          <span class="char-back__zh">${escapeHTML(c.word)}</span>
+          <span class="char-back__alt">${escapeHTML(c.pinyin)} — ${escapeHTML(c.english)}</span>
+        </li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
+  if (examples.length && !compounds.length) {
+    // Only show examples when there are no compounds, to keep the card tidy.
+    html += `<div class="char-back__section">
+      <div class="char-back__label">In context</div>
+      <ul class="char-back__list">${examples.map((e) => `
+        <li>
+          <span class="char-back__zh">${escapeHTML(e.sentence)}</span>
+          <span class="char-back__alt">${escapeHTML(e.english)}</span>
+        </li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
+  if (!compounds.length && !examples.length) {
+    html += `<div class="char-back__section char-back__section--empty">
+      <em>Practice writing this character — it's introduced for handwriting in this lesson.</em>
+    </div>`;
+  }
+  return html;
 }
 
 function flipCard() {
@@ -329,7 +401,7 @@ function grade(g) {
 }
 
 function nextCard(afterGrade) {
-  if (!state.deck.length) return;
+  if (!state.deck.length || state.finished) return;
   if (state.index < state.deck.length - 1) {
     state.index++;
     renderCard();
@@ -340,6 +412,7 @@ function nextCard(afterGrade) {
   }
 }
 function prevCard() {
+  if (state.finished) return;
   if (state.index > 0) {
     state.index--;
     renderCard();
@@ -347,6 +420,7 @@ function prevCard() {
 }
 
 function showFinished() {
+  state.finished = true;
   const total = state.deck.length;
   const known = Object.values(state.grades).filter((g) => g === 'good' || g === 'easy').length;
   const hard  = Object.values(state.grades).filter((g) => g === 'hard').length;
@@ -378,9 +452,10 @@ function bindGlobalEvents() {
     state.shuffled = !state.shuffled;
     e.currentTarget.setAttribute('aria-pressed', String(state.shuffled));
     if (state.view === 'study') {
-      // reshuffle current deck
+      // reshuffle current deck and restart
       shuffleInPlace(state.deck);
       state.index = 0;
+      state.finished = false;
       state.reviewed.clear();
       state.grades = {};
       renderCard();
@@ -389,6 +464,7 @@ function bindGlobalEvents() {
 
   $('#btnReset').addEventListener('click', () => {
     state.index = 0;
+    state.finished = false;
     state.reviewed.clear();
     state.grades = {};
     renderCard();
@@ -401,6 +477,7 @@ function bindGlobalEvents() {
 
   $('#finishedRestart').addEventListener('click', () => {
     state.index = 0;
+    state.finished = false;
     state.reviewed.clear();
     state.grades = {};
     if (state.shuffled) shuffleInPlace(state.deck);
@@ -432,7 +509,6 @@ function bindSettingsDialog() {
     $('#setTheme').value         = state.settings.theme;
     $('#setFront').value         = state.settings.front;
     $('#setSize').value          = state.settings.size;
-    $('#setAutoFlip').checked    = !!state.settings.autoFlip;
     $('#setReduceMotion').checked = !!state.settings.reduceMotion;
     if (typeof dlg.showModal === 'function') dlg.showModal();
     else dlg.setAttribute('open', 'open');
@@ -441,7 +517,6 @@ function bindSettingsDialog() {
   $('#setTheme').addEventListener('change', (e) => { state.settings.theme = e.target.value; applySettings(); saveSettings(); });
   $('#setFront').addEventListener('change', (e) => { state.settings.front = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
   $('#setSize').addEventListener('change', (e) => { state.settings.size = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
-  $('#setAutoFlip').addEventListener('change', (e) => { state.settings.autoFlip = e.target.checked; saveSettings(); });
   $('#setReduceMotion').addEventListener('change', (e) => { state.settings.reduceMotion = e.target.checked; saveSettings(); applySettings(); });
 
   $('#setResetProgress').addEventListener('click', () => {
