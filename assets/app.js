@@ -24,8 +24,11 @@ const state = {
   index: 0,
   flipped: false,
   shuffled: false,
+  finished: false,
   reviewed: new Set(),
   grades: {},            // cardKey -> grade
+  audioManifest: null,   // { cardText: "file.mp3" }
+  audioEl: null,         // shared HTMLAudioElement
   settings: loadSettings(),
   progress: loadProgress(),
 };
@@ -38,7 +41,7 @@ function loadSettings() {
   return defaultSettings();
 }
 function defaultSettings() {
-  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false };
+  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false, autoplay: false };
 }
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
@@ -67,6 +70,12 @@ async function init() {
     document.body.innerHTML = '<main style="padding:48px;text-align:center;font-family:system-ui">Could not load <code>data/lessons.json</code>.<br>Run a local server: <code>cd chinese-flashcards &amp;&amp; python3 -m http.server 8000</code></main>';
     return;
   }
+
+  // Audio manifest is optional — the app still works (browser TTS) without it.
+  try {
+    const ar = await fetch('assets/audio/manifest.json');
+    if (ar.ok) state.audioManifest = await ar.json();
+  } catch (e) { state.audioManifest = null; }
 
   bindGlobalEvents();
   bindSettingsDialog();
@@ -289,6 +298,8 @@ function renderCard() {
     return;
   }
 
+  stopAudio();   // never let a previous clip bleed into the next card
+
   const card = state.deck[state.index];
   const cardEl = $('#card');
   cardEl.classList.remove(
@@ -331,6 +342,75 @@ function renderCard() {
   $('#studyPos').textContent = state.index + 1;
   const pct = ((state.reviewed.size) / state.deck.length) * 100;
   $('#progressBar').style.width = pct + '%';
+
+  // Audio button is always available — Chinese is always speakable.
+  const ab = $('#audioBtn');
+  if (ab) ab.disabled = false;
+
+  if (state.settings.autoplay) playCardAudio();
+}
+
+/* ---------------------- audio (hybrid) ---------------------- */
+function currentSpeakText() {
+  const card = state.deck[state.index];
+  if (!card) return '';
+  // Always speak the Chinese, even in inverted (English-front) mode.
+  return card.front_zh || '';
+}
+
+function setAudioBtnState(playing) {
+  const ab = $('#audioBtn');
+  if (!ab) return;
+  ab.classList.toggle('is-playing', !!playing);
+  ab.setAttribute('aria-label', playing ? 'Stop audio' : 'Play pronunciation');
+}
+
+function stopAudio() {
+  if (state.audioEl) { state.audioEl.pause(); state.audioEl.currentTime = 0; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  setAudioBtnState(false);
+}
+
+function speakFallback(text) {
+  if (!('speechSynthesis' in window) || !text) { setAudioBtnState(false); return; }
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 0.9;
+    const pick = () => {
+      const v = window.speechSynthesis.getVoices()
+        .find((x) => /zh(-|_)?CN/i.test(x.lang) || /Chinese.*China/i.test(x.name));
+      if (v) u.voice = v;
+    };
+    pick();
+    u.onend = () => setAudioBtnState(false);
+    u.onerror = () => setAudioBtnState(false);
+    setAudioBtnState(true);
+    window.speechSynthesis.speak(u);
+  } catch (e) { setAudioBtnState(false); }
+}
+
+function playCardAudio() {
+  const text = currentSpeakText();
+  if (!text) return;
+
+  // Toggle: if something is playing, stop.
+  if (state.audioEl && !state.audioEl.paused) { stopAudio(); return; }
+  if (window.speechSynthesis && window.speechSynthesis.speaking) { stopAudio(); return; }
+
+  const file = state.audioManifest && state.audioManifest[text];
+  if (file) {
+    if (!state.audioEl) state.audioEl = new Audio();
+    const a = state.audioEl;
+    a.src = `assets/audio/${file}`;
+    a.onended = () => setAudioBtnState(false);
+    a.onerror = () => speakFallback(text);          // file missing/blocked → TTS
+    setAudioBtnState(true);
+    a.play().catch(() => speakFallback(text));      // autoplay block → TTS
+  } else {
+    speakFallback(text);                            // no pre-gen clip → TTS
+  }
 }
 
 function renderCharBack(card) {
@@ -445,6 +525,11 @@ function shuffleInPlace(arr) {
 function bindGlobalEvents() {
   $('#card').addEventListener('click', flipCard);
 
+  $('#audioBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    playCardAudio();
+  });
+
   $('#btnPrev').addEventListener('click', prevCard);
   $('#btnNext').addEventListener('click', () => nextCard(false));
 
@@ -498,6 +583,7 @@ function onKey(e) {
   if (k === '2') { grade('hard'); return; }
   if (k === '3') { grade('good'); return; }
   if (k === '4') { grade('easy'); return; }
+  if (k === 'p') { e.preventDefault(); playCardAudio(); return; }
   if (k === 's') { $('#btnShuffle').click(); return; }
   if (k === 'r') { $('#btnReset').click(); return; }
 }
@@ -509,6 +595,7 @@ function bindSettingsDialog() {
     $('#setTheme').value         = state.settings.theme;
     $('#setFront').value         = state.settings.front;
     $('#setSize').value          = state.settings.size;
+    $('#setAutoplay').checked    = !!state.settings.autoplay;
     $('#setReduceMotion').checked = !!state.settings.reduceMotion;
     if (typeof dlg.showModal === 'function') dlg.showModal();
     else dlg.setAttribute('open', 'open');
@@ -517,6 +604,7 @@ function bindSettingsDialog() {
   $('#setTheme').addEventListener('change', (e) => { state.settings.theme = e.target.value; applySettings(); saveSettings(); });
   $('#setFront').addEventListener('change', (e) => { state.settings.front = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
   $('#setSize').addEventListener('change', (e) => { state.settings.size = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
+  $('#setAutoplay').addEventListener('change', (e) => { state.settings.autoplay = e.target.checked; saveSettings(); });
   $('#setReduceMotion').addEventListener('change', (e) => { state.settings.reduceMotion = e.target.checked; saveSettings(); applySettings(); });
 
   $('#setResetProgress').addEventListener('click', () => {

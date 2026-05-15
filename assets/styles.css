@@ -569,6 +569,54 @@ body {
   padding: var(--s-4) 0;
   display: grid;
   place-items: center;
+  position: relative;
+}
+
+/* Audio control — pinned to the card's top-right corner.
+   The card is min(720px,100%) and centered, so this calc keeps the
+   button glued to the card edge at every width. */
+.audiobtn {
+  position: absolute;
+  top: calc(var(--s-4) + 14px);
+  right: max(14px, calc((100% - 720px) / 2 + 14px));
+  z-index: 4;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  color: var(--accent);
+  box-shadow: var(--sh-2);
+  transition: transform var(--d-fast) var(--ease),
+              box-shadow var(--d-fast) var(--ease),
+              background var(--d-fast) var(--ease),
+              color var(--d-fast) var(--ease);
+}
+.audiobtn:hover { transform: translateY(-1px) scale(1.04); box-shadow: var(--sh-3); }
+.audiobtn:active { transform: translateY(0) scale(0.98); }
+.audiobtn:disabled { opacity: 0.4; pointer-events: none; }
+.audiobtn__icon { grid-area: 1 / 1; }
+.audiobtn__icon--stop { display: none; }
+.audiobtn.is-playing {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.audiobtn.is-playing .audiobtn__icon--play { display: none; }
+.audiobtn.is-playing .audiobtn__icon--stop { display: block; }
+.audiobtn__wave { opacity: 0; transform-origin: 12px 12px; }
+.audiobtn.is-playing .audiobtn__icon--play { display: none; }
+/* Wave animation only matters when the play icon is shown mid-load */
+.audiobtn .audiobtn__wave--1 { animation: none; }
+@keyframes wavePulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.audiobtn:not(.is-playing):hover .audiobtn__wave { opacity: 0.55; transition: opacity var(--d-fast); }
+@media (max-width: 560px) {
+  .audiobtn { width: 44px; height: 44px; top: calc(var(--s-4) + 10px); right: 12px; }
 }
 .card {
   position: relative;
