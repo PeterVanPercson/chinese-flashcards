@@ -572,52 +572,100 @@ body {
   position: relative;
 }
 
-/* Audio control — pinned to the card's top-right corner.
-   The card is min(720px,100%) and centered, so this calc keeps the
-   button glued to the card edge at every width. */
-.audiobtn {
-  position: absolute;
-  top: calc(var(--s-4) + 14px);
-  right: max(14px, calc((100% - 720px) / 2 + 14px));
-  z-index: 4;
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
+/* Prominent press-to-play control, directly under the card. */
+.audio-row {
+  display: flex;
+  justify-content: center;
+  margin: var(--s-4) 0 var(--s-2);
+}
+.playbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 12px 22px;
+  min-height: 52px;
   border-radius: var(--r-pill);
-  background: var(--bg-elev);
-  border: 1px solid var(--rule);
-  color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
   box-shadow: var(--sh-2);
+  font-weight: 600;
+  font-size: var(--t-md);
   transition: transform var(--d-fast) var(--ease),
               box-shadow var(--d-fast) var(--ease),
               background var(--d-fast) var(--ease),
-              color var(--d-fast) var(--ease);
+              filter var(--d-fast) var(--ease);
 }
-.audiobtn:hover { transform: translateY(-1px) scale(1.04); box-shadow: var(--sh-3); }
-.audiobtn:active { transform: translateY(0) scale(0.98); }
-.audiobtn:disabled { opacity: 0.4; pointer-events: none; }
-.audiobtn__icon { grid-area: 1 / 1; }
-.audiobtn__icon--stop { display: none; }
-.audiobtn.is-playing {
-  background: var(--accent);
+.playbtn:hover { transform: translateY(-1px); box-shadow: var(--sh-3); filter: brightness(1.05); }
+.playbtn:active { transform: translateY(0); box-shadow: var(--sh-1); }
+.playbtn:disabled { opacity: 0.45; pointer-events: none; }
+
+.playbtn__icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+}
+.playbtn__svg { grid-area: 1 / 1; }
+.playbtn__svg--stop { display: none; }
+.playbtn__eq {
+  grid-area: 1 / 1;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 22px;
+  height: 18px;
+}
+.playbtn__eq i {
+  width: 3px;
+  background: #fff;
+  border-radius: 2px;
+  height: 40%;
+  animation: eq 0.9s var(--ease) infinite;
+}
+.playbtn__eq i:nth-child(2) { animation-delay: 0.15s; }
+.playbtn__eq i:nth-child(3) { animation-delay: 0.3s; }
+.playbtn__eq i:nth-child(4) { animation-delay: 0.45s; }
+@keyframes eq {
+  0%, 100% { height: 30%; }
+  50% { height: 95%; }
+}
+
+.playbtn__label { line-height: 1; }
+.playbtn__kbd {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 5px;
+  padding: 1px 7px;
   color: #fff;
-  border-color: var(--accent);
 }
-.audiobtn.is-playing .audiobtn__icon--play { display: none; }
-.audiobtn.is-playing .audiobtn__icon--stop { display: block; }
-.audiobtn__wave { opacity: 0; transform-origin: 12px 12px; }
-.audiobtn.is-playing .audiobtn__icon--play { display: none; }
-/* Wave animation only matters when the play icon is shown mid-load */
-.audiobtn .audiobtn__wave--1 { animation: none; }
-@keyframes wavePulse {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 1; }
+
+/* Playing state: swap play→equalizer */
+.playbtn.is-playing .playbtn__svg--play { display: none; }
+.playbtn.is-playing .playbtn__eq { display: flex; }
+
+/* Error/unavailable state */
+.playbtn.is-error {
+  background: var(--bg-elev);
+  color: var(--grade-again);
+  border-color: color-mix(in oklab, var(--grade-again) 45%, var(--rule));
 }
-.audiobtn:not(.is-playing):hover .audiobtn__wave { opacity: 0.55; transition: opacity var(--d-fast); }
-@media (max-width: 560px) {
-  .audiobtn { width: 44px; height: 44px; top: calc(var(--s-4) + 10px); right: 12px; }
+.playbtn.is-error .playbtn__svg--play { display: none; }
+.playbtn.is-error .playbtn__eq { display: none; }
+.playbtn.is-error .playbtn__icon::after {
+  content: '!';
+  font-weight: 800;
+  color: var(--grade-again);
 }
+.playbtn.is-error .playbtn__kbd { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .playbtn__eq i { animation: none; height: 60%; }
+}
+:root[data-motion='reduce'] .playbtn__eq i { animation: none; height: 60%; }
 .card {
   position: relative;
   width: min(720px, 100%);

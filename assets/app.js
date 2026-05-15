@@ -29,8 +29,7 @@ const state = {
   grades: {},            // cardKey -> grade
   audioManifest: null,   // { cardText: "file.mp3" }
   audioEl: null,         // shared HTMLAudioElement
-  audioUnlocked: false,  // set true after first user gesture
-  audioPlaying: false,   // true only while a REAL clip/TTS is playing
+  audioPlaying: false,   // true only while a clip/TTS is playing
   settings: loadSettings(),
   progress: loadProgress(),
 };
@@ -43,7 +42,7 @@ function loadSettings() {
   return defaultSettings();
 }
 function defaultSettings() {
-  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false, autoplay: false };
+  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false };
 }
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
@@ -348,53 +347,20 @@ function renderCard() {
   // Audio button is always available — Chinese is always speakable.
   const ab = $('#audioBtn');
   if (ab) ab.disabled = false;
-
-  if (state.settings.autoplay) playCardAudio();
+  setAudioBtnState(false);
 }
 
 /* ---------------------- audio (hybrid) ---------------------- */
 
-// Tiny silent WAV — used once to "unlock" the audio element inside a
-// real user gesture so later programmatic .play() calls are allowed
-// (iOS Safari / mobile Chrome autoplay policy).
-const SILENT_WAV =
-  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-
+// One reusable <audio> element. Playback is always triggered by a
+// direct button/key press — itself the user gesture every browser
+// requires — so no autoplay-unlock workaround is needed.
 function getAudioEl() {
   if (!state.audioEl) {
     state.audioEl = new Audio();
     state.audioEl.preload = 'auto';
   }
   return state.audioEl;
-}
-
-// Called on the very first user gesture anywhere on the page.
-function unlockAudio() {
-  if (state.audioUnlocked) return;
-  state.audioUnlocked = true;
-
-  const a = getAudioEl();
-  try {
-    a.muted = true;
-    a.src = SILENT_WAV;
-    const p = a.play();
-    if (p && p.then) {
-      p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; })
-       .catch(() => { a.muted = false; });
-    } else {
-      a.pause(); a.muted = false;
-    }
-  } catch (e) { a.muted = false; }
-
-  // Warm up speech synthesis within the gesture too (fallback path).
-  if ('speechSynthesis' in window) {
-    try {
-      const w = new SpeechSynthesisUtterance(' ');
-      w.volume = 0;
-      window.speechSynthesis.speak(w);
-      window.speechSynthesis.cancel();
-    } catch (e) {}
-  }
 }
 
 function currentSpeakText() {
@@ -407,8 +373,27 @@ function currentSpeakText() {
 function setAudioBtnState(playing) {
   const ab = $('#audioBtn');
   if (!ab) return;
+  ab.classList.remove('is-error');
   ab.classList.toggle('is-playing', !!playing);
   ab.setAttribute('aria-label', playing ? 'Stop audio' : 'Play pronunciation');
+  const lbl = $('#audioLabel');
+  if (lbl) lbl.textContent = playing ? 'Playing — tap to stop' : 'Play pronunciation';
+}
+
+let _audioErrTimer = null;
+function flashAudioUnavailable() {
+  const ab = $('#audioBtn');
+  const lbl = $('#audioLabel');
+  if (!ab || !lbl) return;
+  state.audioPlaying = false;
+  ab.classList.remove('is-playing');
+  ab.classList.add('is-error');
+  lbl.textContent = 'Audio unavailable here';
+  clearTimeout(_audioErrTimer);
+  _audioErrTimer = setTimeout(() => {
+    ab.classList.remove('is-error');
+    lbl.textContent = 'Play pronunciation';
+  }, 2000);
 }
 
 function stopAudio() {
@@ -419,38 +404,42 @@ function stopAudio() {
 }
 
 function speakFallback(text) {
-  if (!('speechSynthesis' in window) || !text) { setAudioBtnState(false); return; }
+  if (!('speechSynthesis' in window) || !text) { flashAudioUnavailable(); return; }
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
     u.rate = 0.9;
-    const pick = () => {
-      const v = window.speechSynthesis.getVoices()
-        .find((x) => /zh(-|_)?CN/i.test(x.lang) || /Chinese.*China/i.test(x.name));
-      if (v) u.voice = v;
-    };
-    pick();
+    const v = window.speechSynthesis.getVoices()
+      .find((x) => /zh(-|_)?CN/i.test(x.lang) || /Chinese/i.test(x.name));
+    if (v) u.voice = v;
+    let started = false;
+    u.onstart = () => { started = true; };
     u.onend = () => { state.audioPlaying = false; setAudioBtnState(false); };
-    u.onerror = () => { state.audioPlaying = false; setAudioBtnState(false); };
+    u.onerror = () => { state.audioPlaying = false; flashAudioUnavailable(); };
     state.audioPlaying = true;
     setAudioBtnState(true);
     window.speechSynthesis.speak(u);
-  } catch (e) { state.audioPlaying = false; setAudioBtnState(false); }
+    // If nothing actually started (no usable voice), tell the user.
+    setTimeout(() => {
+      if (!started && !window.speechSynthesis.speaking) {
+        state.audioPlaying = false;
+        flashAudioUnavailable();
+      }
+    }, 700);
+  } catch (e) { state.audioPlaying = false; flashAudioUnavailable(); }
 }
 
 function playCardAudio() {
   const text = currentSpeakText();
   if (!text) return;
 
-  // Toggle: if a REAL clip/TTS is playing, stop. (The silent unlock clip
-  // does NOT set audioPlaying, so it can't false-trigger this.)
+  // Press again while playing → stop (toggle).
   if (state.audioPlaying) { stopAudio(); return; }
 
   const file = state.audioManifest && state.audioManifest[text];
   if (file) {
     const a = getAudioEl();
-    a.muted = false;
     a.src = `assets/audio/${file}`;
     a.onended = () => { state.audioPlaying = false; setAudioBtnState(false); };
     a.onerror = () => { state.audioPlaying = false; speakFallback(text); }; // missing → TTS
@@ -573,15 +562,6 @@ function shuffleInPlace(arr) {
 
 /* ---------------------- events ---------------------- */
 function bindGlobalEvents() {
-  // Unlock audio on the very first user interaction (any of these),
-  // then stop listening. Capture phase so it runs before other handlers.
-  const UNLOCK_EVENTS = ['pointerdown', 'touchstart', 'mousedown', 'click', 'keydown'];
-  const unlockOnce = () => {
-    unlockAudio();
-    UNLOCK_EVENTS.forEach((ev) => document.removeEventListener(ev, unlockOnce, true));
-  };
-  UNLOCK_EVENTS.forEach((ev) => document.addEventListener(ev, unlockOnce, true));
-
   $('#card').addEventListener('click', flipCard);
 
   $('#audioBtn').addEventListener('click', (e) => {
@@ -654,7 +634,6 @@ function bindSettingsDialog() {
     $('#setTheme').value         = state.settings.theme;
     $('#setFront').value         = state.settings.front;
     $('#setSize').value          = state.settings.size;
-    $('#setAutoplay').checked    = !!state.settings.autoplay;
     $('#setReduceMotion').checked = !!state.settings.reduceMotion;
     if (typeof dlg.showModal === 'function') dlg.showModal();
     else dlg.setAttribute('open', 'open');
@@ -663,7 +642,6 @@ function bindSettingsDialog() {
   $('#setTheme').addEventListener('change', (e) => { state.settings.theme = e.target.value; applySettings(); saveSettings(); });
   $('#setFront').addEventListener('change', (e) => { state.settings.front = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
   $('#setSize').addEventListener('change', (e) => { state.settings.size = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
-  $('#setAutoplay').addEventListener('change', (e) => { state.settings.autoplay = e.target.checked; saveSettings(); });
   $('#setReduceMotion').addEventListener('change', (e) => { state.settings.reduceMotion = e.target.checked; saveSettings(); applySettings(); });
 
   $('#setResetProgress').addEventListener('click', () => {

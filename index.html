@@ -134,15 +134,21 @@
           </div>
         </div>
       </button>
-      <button class="audiobtn" id="audioBtn" type="button" aria-label="Play pronunciation" title="Play pronunciation (P)">
-        <svg class="audiobtn__icon audiobtn__icon--play" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <path d="M11 5 6 9H2v6h4l5 4V5z"/>
-          <path class="audiobtn__wave audiobtn__wave--1" d="M15.5 8.5a5 5 0 0 1 0 7"/>
-          <path class="audiobtn__wave audiobtn__wave--2" d="M18.5 5.5a9 9 0 0 1 0 13"/>
-        </svg>
-        <svg class="audiobtn__icon audiobtn__icon--stop" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <rect x="6" y="6" width="12" height="12" rx="2"/>
-        </svg>
+    </div>
+
+    <div class="audio-row">
+      <button class="playbtn" id="audioBtn" type="button" aria-label="Play pronunciation">
+        <span class="playbtn__icon" aria-hidden="true">
+          <svg class="playbtn__svg playbtn__svg--play" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg class="playbtn__svg playbtn__svg--stop" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+          <span class="playbtn__eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        </span>
+        <span class="playbtn__label" id="audioLabel">Play pronunciation</span>
+        <kbd class="playbtn__kbd" aria-hidden="true">P</kbd>
       </button>
     </div>
 
@@ -232,10 +238,6 @@
           <option value="l" selected>Large</option>
           <option value="xl">Extra large</option>
         </select>
-      </label>
-      <label class="setting setting--inline">
-        <span class="setting__label">Auto-play audio on each card</span>
-        <input type="checkbox" id="setAutoplay" class="setting__checkbox">
       </label>
       <label class="setting setting--inline">
         <span class="setting__label">Reduce motion</span>
