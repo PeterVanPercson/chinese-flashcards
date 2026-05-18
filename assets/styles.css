@@ -795,11 +795,22 @@ body {
 }
 .card--character .card__english {
   text-align: left;
-  margin-top: var(--s-3);
+  margin-top: var(--s-2);
   max-width: 100%;
   width: 100%;
   font-size: var(--t-md);
   font-weight: 400;
+}
+/* The character's own English meaning — the primary answer. */
+.char-back__meaning {
+  text-align: center;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-bottom: var(--s-4);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--rule-soft);
 }
 .char-back__py {
   font-style: italic;

@@ -265,6 +265,7 @@ function buildDeck(L, mode) {
     const compounds = L.char_compounds || {};
     const examples  = L.char_examples  || {};
     const charPy    = L.char_pinyin    || {};
+    const charGloss = L.char_gloss     || {};
     return (L.characters || []).map((c, i) => {
       const comps = compounds[c] || [];
       const exs   = examples[c]  || [];
@@ -273,7 +274,7 @@ function buildDeck(L, mode) {
         type: 'character',
         front_zh: c,
         pinyin: charPy[c] || '',
-        english: '',          // character cards have a custom back; left blank
+        english: charGloss[c] || '',   // per-character meaning (makemeahanzi)
         pos: '',
         compounds: comps,
         examples: exs,
@@ -457,7 +458,10 @@ function renderCharBack(card) {
   const compounds = (card.compounds || []).slice(0, 4);
   const examples  = (card.examples  || []).slice(0, 2);
 
-  let html = '';
+  // Primary: the character's own English meaning.
+  let html = card.english
+    ? `<div class="char-back__meaning">${escapeHTML(card.english)}</div>`
+    : '';
 
   if (compounds.length) {
     html += `<div class="char-back__section">
@@ -486,7 +490,7 @@ function renderCharBack(card) {
 
   if (!compounds.length && !examples.length) {
     html += `<div class="char-back__section char-back__section--empty">
-      <em>Practice writing this character — it's introduced for handwriting in this lesson.</em>
+      <em>读写字 — introduced here for reading &amp; writing practice.</em>
     </div>`;
   }
   return html;

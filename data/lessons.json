@@ -658,6 +658,28 @@
             "english": "Exams during the day, watching the World Cup at night."
           }
         ]
+      },
+      "char_gloss": {
+        "久": "long ago; a long time",
+        "毕": "to finish; to conclude; to end; completed",
+        "业": "business; profession; to study; to work",
+        "专": "concentrated; specialized; to monopolize",
+        "际": "border; boundary; juncture",
+        "济": "to aid; to help; to relieve; to ferry across",
+        "应": "should; must; to respond; to handle",
+        "该": "should; ought to; must",
+        "特": "special; unique; distinguished",
+        "完": "to complete; to finish; to settle; whole",
+        "满": "to fill; full; packed; satisfied",
+        "着": "to make a move; to take action",
+        "急": "anxious; worried; hasty; quick",
+        "祝": "to pray; to wish well; surname",
+        "白": "white; clear; pure; unblemished",
+        "夜": "night; dark; under cover of night",
+        "加": "to add to; to increase; to augment",
+        "世": "generation; era; age; world",
+        "界": "boundary; limit; domain; society",
+        "杯": "cup; glass; measure word for liquids"
       }
     },
     {
@@ -1289,6 +1311,28 @@
         ],
         "罚": [],
         "款": []
+      },
+      "char_gloss": {
+        "球": "ball; globe; sphere; round",
+        "篮": "basket; goal",
+        "踢": "to kick",
+        "足": "foot; to attain; to satisfy; enough",
+        "系": "system; line; link; connection",
+        "输": "to carry; to haul; to transport",
+        "赢": "to win; to gain; surplus; profit",
+        "京": "capital city",
+        "剧": "theatrical plays; opera; drama; severe",
+        "演": "to perform; to act; to put on a play",
+        "会": "to assemble; to meet; meeting; association",
+        "团": "sphere; circle; ball; mass",
+        "参": "to take part in; to intervene; ginseng",
+        "活": "to exist; to live; to survive; living",
+        "动": "to move; to happen; movement; action",
+        "卖": "to sell; to betray; to show off",
+        "送": "to see off; to send off; to dispatch; to give",
+        "美": "beautiful; pretty; pleasing",
+        "罚": "penalty; fine; to punish; to penalize",
+        "款": "funds; payment; item; article"
       }
     },
     {
@@ -1713,7 +1757,9 @@
         "搬": "bān",
         "带": "dài",
         "散": "sàn",
-        "视": "shì"
+        "视": "shì",
+        "花": "huā",
+        "当": "dāng"
       },
       "char_examples": {
         "抽": [
@@ -1867,6 +1913,28 @@
             "english": "Do you watch TV at night?"
           }
         ]
+      },
+      "char_gloss": {
+        "抽": "to draw out; to pull out; to sprout",
+        "烟": "smoke; soot; opium; tobacco",
+        "处": "to reside at; to live in; place; locale",
+        "所": "place; location; \"that which\"; a particle introducing a passive clause",
+        "运": "to run; ship; transport; fortune",
+        "游": "to wander; to travel; to tour; to roam",
+        "泳": "to swim; to dive",
+        "另": "another; separate; other",
+        "网": "net; network",
+        "羽": "feather; plume; wings",
+        "毛": "hair; fur; feathers; coarse",
+        "养": "to raise; to rear; to bring up; to support",
+        "花": "flower; blossom; to spend (time or money)",
+        "狗": "dog",
+        "猫": "cat",
+        "搬": "to move; to remove; to shift; to transfer",
+        "当": "appropriate; timely; to act; to serve",
+        "带": "belt; strap; band; ribbon",
+        "散": "to scatter; to disperse; to break up",
+        "视": "to look at; to inspect; to observe; to regard"
       }
     },
     {
@@ -2284,7 +2352,11 @@
         "让": "ràng",
         "害": "hài",
         "怕": "pà",
-        "实": "shí"
+        "实": "shí",
+        "头": "tóu",
+        "眼": "yǎn",
+        "睛": "jīng",
+        "平": "píng"
       },
       "char_examples": {
         "头": [
@@ -2343,6 +2415,28 @@
         "害": [],
         "怕": [],
         "实": []
+      },
+      "char_gloss": {
+        "头": "head; chief; boss; first",
+        "皮": "skin; hide; fur; feathers",
+        "肤": "skin; shallow; superficial",
+        "眼": "eyelet; hole; opening",
+        "睛": "eyeball; pupil",
+        "矮": "short; low; dwarf",
+        "胖": "fat; plump; obese; a fat person",
+        "黑": "black; dark; evil; sinister",
+        "介": "agent; go-between; intermediary; to introduce",
+        "绍": "to connect; to introduce",
+        "平": "flat; level; even; peaceful",
+        "随": "to follow; to listen to; to submit to",
+        "穿": "to drill; to pierce; to dress; to wear",
+        "短": "brief; short; deficient; lacking",
+        "裤": "pants; trousers",
+        "条": "clause; condition; string; stripe",
+        "让": "to allow; to permit; to yield",
+        "害": "to injure; to harm; to destroy; to kill",
+        "怕": "to fear; to be afraid of; apprehensive",
+        "实": "real; true; honest; sincere"
       }
     },
     {
@@ -2806,7 +2900,8 @@
         "吵": "chǎo",
         "离": "lí",
         "迎": "yíng",
-        "龙": "lóng"
+        "龙": "lóng",
+        "闹": "nào"
       },
       "char_examples": {
         "南": [
@@ -2932,6 +3027,28 @@
           }
         ],
         "龙": []
+      },
+      "char_gloss": {
+        "南": "south; southern; southward",
+        "北": "north; northern; northward",
+        "城": "castle; city; town; municipality",
+        "农": "agriculture; farming; farmer",
+        "村": "village; hamlet; vulgar; uncouth",
+        "山": "mountain; hill; peak",
+        "河": "river; stream; the Yellow river",
+        "海": "sea; ocean; maritime",
+        "田": "field; farm; arable land; cultivated",
+        "野": "field; open country; wilderness",
+        "树": "tree; to plant; to set up; to establish",
+        "鲜": "fresh; delicious; attractive",
+        "优": "superior; elegant",
+        "环": "bracelet; ring; to surround; to loop",
+        "境": "boundary; frontier; area; region",
+        "闹": "busy; lively; to dispute; to quarrel",
+        "吵": "to argue; to dispute; to annoy; to disturb",
+        "离": "rare beast; strange; elegant",
+        "迎": "to welcome; to receive; to greet",
+        "龙": "dragon; symbol of the emperor"
       }
     },
     {
@@ -3376,7 +3493,9 @@
         "情": "qíng",
         "况": "kuàng",
         "办": "bàng",
-        "手": "shǒu"
+        "手": "shǒu",
+        "清": "qīng",
+        "楚": "chǔ"
       },
       "char_examples": {
         "父": [
@@ -3464,6 +3583,28 @@
             "english": "Can't hear clearly."
           }
         ]
+      },
+      "char_gloss": {
+        "父": "father; dad",
+        "母": "mother; female elders; female",
+        "亲": "relatives; parents; intimate; the hazelnut tree",
+        "接": "to connect; to join; to receive; to meet",
+        "场": "field; open space; market; square",
+        "陪": "to accompany; to be with; to keep company",
+        "组": "to form; to assemble; section; department",
+        "织": "to knit; to weave; to organize; to unite",
+        "观": "to observe; to spectate; appearance; view",
+        "报": "to announce; to report; newspaper; payback",
+        "通": "to pass through; to open; to connect; to communicate",
+        "免": "to spare; to excuse from; to evade",
+        "费": "expenses; fees; to cost; to spend",
+        "具": "tool; implement; to draw up; to write",
+        "情": "emotion; feeling; sentiment",
+        "况": "condition; situation; furthermore",
+        "办": "to set up; to manage; to run; to deal with",
+        "手": "hand",
+        "清": "clean; pure; clear; distinct",
+        "楚": "clear; distinct; pain; suffering"
       }
     },
     {
@@ -3872,7 +4013,11 @@
         "又": "Yòu",
         "主": "zhǔ",
         "规": "guī",
-        "洗": "xǐ"
+        "洗": "xǐ",
+        "酸": "suān",
+        "糖": "táng",
+        "极": "jí",
+        "饺": "jiǎo"
       },
       "char_examples": {
         "尝": [
@@ -3959,6 +4104,28 @@
         "饺": [],
         "规": [],
         "洗": []
+      },
+      "char_gloss": {
+        "尝": "to taste; to experience; to experiment with",
+        "炒": "to boil; to fry; to roast; to sauté",
+        "蛋": "egg",
+        "咸": "all; together; united; salted",
+        "酸": "tart; sour; spoiled; acid",
+        "苦": "bitter; hardship; suffering",
+        "辣": "pepper; hot; spicy; cruel",
+        "饱": "satisfied; to eat one's fill",
+        "盐": "salt",
+        "糖": "candy; sugar; sweets",
+        "醋": "vinegar; jealousy; envy",
+        "瓜": "melon; gourd; squash; cucumber",
+        "鱼": "fish",
+        "约": "treaty; covenant; agreement",
+        "极": "extreme; top; final; furthest",
+        "又": "and; also; again; in addition",
+        "主": "to own; to host; master; host",
+        "饺": "stuffed dumplings",
+        "规": "rules; regulations; customs; law",
+        "洗": "to bathe; to rinse; to wash"
       }
     },
     {
@@ -4447,7 +4614,10 @@
         "阳": "yáng",
         "最": "zuì",
         "更": "gèng",
-        "低": "dī"
+        "低": "dī",
+        "暖": "nuǎn",
+        "凉": "liáng",
+        "差": "chà"
       },
       "char_examples": {
         "春": [],
@@ -4543,6 +4713,28 @@
           }
         ],
         "差": []
+      },
+      "char_gloss": {
+        "春": "springtime; joyful; lustful; wanton",
+        "夏": "summer; the Xia or Hsia dynasty",
+        "秋": "autumn; fall; year",
+        "冬": "winter; 11th lunar month",
+        "季": "a quarter-year; a season; surname",
+        "节": "festival; knot; joint; segment",
+        "温": "warm; lukewarm",
+        "度": "degree; system; manner; to consider",
+        "暖": "warm; genial",
+        "和": "harmony; peace; calm; peaceful",
+        "凉": "cool; cold; disheartened",
+        "晴": "clear weather; fine weather",
+        "风": "wind; air; customs; manners",
+        "雨": "rain",
+        "雪": "snow; wipe away shame; avenge",
+        "阳": "the male principle; bright; sunny; clear",
+        "最": "most; extremely; exceedingly; superlative",
+        "更": "more; further; to shift; to alternate",
+        "低": "low; to lower; to hang; to bend",
+        "差": "difference; gap; almost; nearly"
       }
     },
     {
@@ -4996,7 +5188,10 @@
         "责": "zér",
         "任": "èn",
         "突": "tūr",
-        "班": "bān"
+        "班": "bān",
+        "背": "bèi",
+        "课": "kè",
+        "谢": "xiè"
       },
       "char_examples": {
         "撞": [],
@@ -5109,6 +5304,28 @@
         "课": [],
         "谢": [],
         "班": []
+      },
+      "char_gloss": {
+        "撞": "to bump into; to collide; to hit; to knock against",
+        "摔": "to fall; to stumble; to trip",
+        "坏": "bad; rotten; spoiled; to break down",
+        "倒": "to collapse; to fall over; to lie down",
+        "伤": "to injure; to harm; wound; injury",
+        "疼": "ache; pain; to love dearly",
+        "破": "to break; to rout; to ruin; to destroy",
+        "拿": "to bring; to grasp; to hold; to take",
+        "伞": "umbrella; parasol; parachute",
+        "修": "to study; to repair; to decorate; to cultivate",
+        "理": "science; reason; logic; to manage",
+        "检": "to check; to examine; to inspect",
+        "查": "to investigate; to examine; to look into",
+        "责": "one's responsibility; duty",
+        "任": "to trust; to rely on; to appoint; to bear",
+        "突": "sudden; abrupt; unexpected",
+        "背": "back; backside; to betray; to violate",
+        "课": "subject; lesson; course; classwork",
+        "谢": "to thank; to refuse politely",
+        "班": "class; squad; team; work shift"
       }
     },
     {
@@ -5593,7 +5810,12 @@
         "恐": "kǒng",
         "糟": "zāo",
         "糕": "gāo",
-        "像": "xiàng"
+        "像": "xiàng",
+        "概": "gài",
+        "窗": "chuāng",
+        "户": "hù",
+        "抽": "chōu",
+        "屉": "tì"
       },
       "char_examples": {
         "相": [
@@ -5708,6 +5930,28 @@
             "english": "That one seems to be Xiao Wang."
           }
         ]
+      },
+      "char_gloss": {
+        "相": "mutual; reciprocal; equal; each other",
+        "信": "to trust; to believe; letter; sign",
+        "鬼": "ghost; demon; sly; mischievous",
+        "轻": "light; gentle; simple; easy",
+        "声": "sound; noise; voice; tone",
+        "灯": "lamp; lantern; light",
+        "敢": "bold; brave; to dare; to venture",
+        "待": "to entertain; to receive; to treat; to delay",
+        "概": "generally; probably; approximately",
+        "关": "frontier pass; to close; to shut; relation",
+        "肯": "to agree to; to consent; to permit; ready",
+        "窗": "window",
+        "户": "door; family",
+        "偷": "to steal; burglar; thief",
+        "恐": "fearful; apprehensive; to fear; to dread",
+        "抽": "to draw out; to pull out; to sprout",
+        "屉": "drawer; tier; pad; screen",
+        "糟": "sediment; dregs; to waste; to spoil",
+        "糕": "cake; pastry",
+        "像": "picture; image; figure; to resemble"
       }
     },
     {
@@ -6201,7 +6445,11 @@
         "终": "zhōng",
         "于": "yú",
         "胃": "wèi",
-        "死": "sǐ"
+        "死": "sǐ",
+        "筷": "kuài",
+        "客": "kè",
+        "肚": "dù",
+        "爷": "yé"
       },
       "char_examples": {
         "橙": [
@@ -6320,6 +6568,28 @@
           }
         ],
         "爷": []
+      },
+      "char_gloss": {
+        "橙": "orange",
+        "汁": "juice; liquor; fluid; sap",
+        "筷": "chopsticks",
+        "标": "mark; sign; symbol; bid",
+        "准": "standard; accurate; to permit; to approve",
+        "客": "guest; traveller; customer",
+        "谊": "friendship; appropriate; suitable",
+        "油": "oil; fat; grease; lard",
+        "惯": "habit; custom; habitual; usual",
+        "素": "plain; white; vegetarian; formerly",
+        "荤": "non-vegetarian food; garlic; a foul smell",
+        "肚": "belly; abdomen; bowels",
+        "熟": "well-cooked; ripe; mature; familiar with",
+        "礼": "courtesy; manners; social customs",
+        "貌": "countenance; appearance",
+        "终": "end; finally; in the end",
+        "于": "at; in; on; to",
+        "胃": "stomach",
+        "死": "dead; death; impassable; inflexible",
+        "爷": "grandfather; old man"
       }
     },
     {
@@ -6790,7 +7060,10 @@
         "保": "bǎo",
         "持": "chí",
         "联": "lián",
-        "留": "liú"
+        "留": "liú",
+        "李": "lǐ",
+        "箱": "xiāng",
+        "袋": "dài"
       },
       "char_examples": {
         "航": [
@@ -6902,6 +7175,28 @@
           }
         ],
         "留": []
+      },
+      "char_gloss": {
+        "航": "vessel; craft; to sail; to navigate",
+        "托": "to raise; to support; to entrust; to rely on",
+        "李": "plum; luggage; surname",
+        "推": "to push; to expel; to drive; to decline",
+        "箱": "box; case; chest; trunk",
+        "袋": "bag; sack; pocket; pouch",
+        "重": "heavy; weighty; to double; to repeat",
+        "量": "measure; volume; amount; quantity",
+        "提": "to hold in the hand; to lift; to raise",
+        "顺": "to submit to; to obey; to go along with",
+        "利": "gains; advantage; profit; merit",
+        "顾": "to look back; to look at; to look after",
+        "希": "rare; to hope for; to strive for; to expect",
+        "望": "to expect; to hope; to look forward to",
+        "邮": "mail; post office",
+        "景": "scenery; view; conditions; circumstances",
+        "保": "to safeguard; to protect; to defend; to care for",
+        "持": "to hold; to support; to sustain",
+        "联": "ally; associate; to connect; to join",
+        "留": "to stay; to remain; to preserve; to keep"
       }
     },
     {
@@ -7363,7 +7658,12 @@
         "添": "tiān",
         "警": "jǐng",
         "察": "chá.",
-        "流": "liú"
+        "流": "liú",
+        "及": "jí",
+        "辆": "liàng",
+        "麻": "má",
+        "烦": "fán",
+        "傅": "fù"
       },
       "char_examples": {
         "及": [
@@ -7472,6 +7772,28 @@
           }
         ],
         "流": []
+      },
+      "char_gloss": {
+        "及": "to extend; to reach; and; in time",
+        "担": "to bear; to carry; burden; responsibility",
+        "堵": "wall; to stop; to prevent; to block",
+        "证": "to prove; to verify; certificate; proof",
+        "辛": "bitter; toilsome; laborious; 8th heavenly stem",
+        "挣": "to struggle; to strive; to endeavor",
+        "民": "citizens; subjects; a nation's people",
+        "厂": "cliff; factory; workshop; building",
+        "辞": "words; speech; to resign; to take leave",
+        "职": "duty; profession; office; post",
+        "原": "source; origin; beginning",
+        "辆": "measure word for vehicles",
+        "旧": "old; ancient; former; past",
+        "添": "to add; to append; to increase; to replenish",
+        "麻": "hemp; flax; sesame; numb",
+        "烦": "to bother; to trouble; to vex",
+        "傅": "tutor; teacher; to assist; surname",
+        "警": "to guard; to watch; alarm; alert",
+        "察": "to examine; to investigate; to observe",
+        "流": "to flow; to drift; to circulate; class"
       }
     },
     {
@@ -7916,7 +8238,11 @@
         "复": "fù",
         "备": "bèi",
         "公": "gōng",
-        "寓": "yù"
+        "寓": "yù",
+        "贸": "mào",
+        "性": "xìng",
+        "读": "dú",
+        "困": "kùn"
       },
       "char_examples": {
         "辅": [
@@ -8038,6 +8364,28 @@
         ],
         "公": [],
         "寓": []
+      },
+      "char_gloss": {
+        "辅": "side road; to assist; to coach; to tutor",
+        "导": "to direct; to guide; to lead; to conduct",
+        "互": "mutually; reciprocally",
+        "帮": "to help; to assist; to support; to defend",
+        "助": "to help; to aid; to assist",
+        "级": "level; rank; class; grade",
+        "贸": "commerce; trade",
+        "性": "sex; nature; character; suffix converting a verb to an adjective",
+        "成": "to accomplish; to become; to complete; to finish",
+        "绩": "achievements; merit",
+        "格": "form; pattern; standard",
+        "求": "to seek; to request; to demand; to beseech",
+        "练": "to drill; to exercise; to practice; to train",
+        "内": "inside",
+        "复": "again; repeatedly; copy; duplicate",
+        "备": "to prepare; to get ready; to equip; ready",
+        "读": "to study; to learn; to read; to pronounce",
+        "困": "to surround; to besiege; surrounded; in distress",
+        "公": "fair; equitable; public; duke",
+        "寓": "residence; lodge; dwelling"
       }
     },
     {
@@ -8474,7 +8822,9 @@
         "员": "yuán",
         "盖": "gài",
         "章": "zhāng",
-        "此": "cǐ"
+        "此": "cǐ",
+        "态": "tài",
+        "商": "shāng"
       },
       "char_examples": {
         "颜": [],
@@ -8610,6 +8960,28 @@
           }
         ],
         "此": []
+      },
+      "char_gloss": {
+        "颜": "face; facial appearance",
+        "色": "color; tint; hue; shade",
+        "绿": "green; chlorine",
+        "黄": "yellow; surname",
+        "红": "red; vermillion; to blush; to flush",
+        "蓝": "blue; indigo plant; surname",
+        "退": "to retreat; to step back; to withdraw",
+        "货": "products; merchandise; goods; commodities",
+        "质": "essence; nature; material; substance",
+        "务": "affairs; business; should; must",
+        "态": "manner; bearing; attitude",
+        "物": "thing; substance; matter; creature",
+        "合": "to combine; to join; to unite; to gather",
+        "适": "match; comfortable; just",
+        "商": "commerce; business; trade",
+        "营": "camp; barracks; army; to run",
+        "员": "employee; member; personnel; staff",
+        "盖": "to cover; to hide; to protect",
+        "章": "chapter; section; writing; seal",
+        "此": "this; these; in this case; then"
       }
     },
     {
@@ -9201,6 +9573,28 @@
         "种": [],
         "决": [],
         "虑": []
+      },
+      "char_gloss": {
+        "卧": "to crouch; to lie down",
+        "厅": "hall; central room",
+        "厨": "kitchen; closet; cupboard",
+        "卫": "to guard; to protect; to defend",
+        "器": "device; instrument; tool; receptacle",
+        "调": "tune; melody; key; to transfer",
+        "冰": "ice; ice-cold",
+        "梯": "ladder; steps; stairs",
+        "押": "to arrest; to detain; to deposit; to pledge",
+        "金": "gold; metal; money",
+        "付": "give; deliver; pay; hand over",
+        "括": "to embrace; to enclose; to include",
+        "锻": "to temper; to refine; to forge metal",
+        "炼": "to smelt; to refine; to distill; to condense",
+        "澡": "to wash; to bathe",
+        "爬": "to climb; to scramble; to crawl; to creep",
+        "各": "individual; each; every; all",
+        "种": "race; kind; breed; seed",
+        "决": "to decide; to determine; to judge",
+        "虑": "anxious; concerned; worried"
       }
     },
     {
@@ -9710,7 +10104,12 @@
         "躺": "tǎng",
         "笑": "xiào",
         "影": "yǐng",
-        "呀": "ya"
+        "呀": "ya",
+        "舒": "shū",
+        "精": "jīng",
+        "神": "shén",
+        "晨": "chén",
+        "除": "chú"
       },
       "char_examples": {
         "舒": [],
@@ -9825,6 +10224,28 @@
           }
         ],
         "呀": []
+      },
+      "char_gloss": {
+        "舒": "relaxed; comfortable; to unfold; to stretch out",
+        "全": "whole; entire; complete; to preserve",
+        "顿": "to pause; to bow; to arrange",
+        "睡": "to sleep; to doze",
+        "精": "essence; germ; spirit",
+        "神": "god; spirit; divine; mysterious",
+        "感": "to affect; to move; to touch; to perceive",
+        "冒": "to risk; to brave; to dare",
+        "烧": "to burn; to bake; to heat; to roast",
+        "脏": "organs; viscera; dirty; filthy",
+        "紧": "tense; tight; taut; firm",
+        "药": "drugs; medicine; the leaf of the Dahurian angelica plant",
+        "针": "needle; pin; tack; acupuncture",
+        "晨": "dawn; early morning",
+        "跑": "to run; to flee; to escape",
+        "躺": "to recline; to lie down",
+        "笑": "to smile; to laugh; to giggle; to snicker",
+        "影": "shadow; image; reflection; photograph",
+        "除": "to eliminate; to remove; to wipe out",
+        "呀": "particle used to express surprise"
       }
     },
     {
@@ -10271,7 +10692,11 @@
         "交": "jiāo",
         "骂": "mà",
         "江": "Jiāng",
-        "它": "tā"
+        "它": "tā",
+        "搞": "gǎo",
+        "糊": "hú",
+        "涂": "tú",
+        "码": "mǎ"
       },
       "char_examples": {
         "把": [
@@ -10401,6 +10826,28 @@
         ],
         "码": [],
         "它": []
+      },
+      "char_gloss": {
+        "把": "to grasp; to hold; to guard; to take",
+        "丢": "to lose; to discard",
+        "座": "seat; stand; base",
+        "搞": "to do; to fix; to make; to settle",
+        "扔": "to throw; to hurl; to cast away",
+        "垃": "garbage; refuse; trash; waste",
+        "圾": "garbage; rubbish; shaking; danger",
+        "护": "to defend; to guard; to protect; shelter",
+        "美": "beautiful; pretty; pleasing",
+        "币": "currency; coins; legal tender",
+        "盘": "tray; plate; dish; to examine",
+        "磁": "magnetic; porcelain",
+        "乘": "ride; mount; to make use of; to ascend",
+        "交": "to connect; to deliver; to exchange; to intersect",
+        "骂": "to accuse; to blame; to curse; to scold",
+        "江": "large river; the Yangtze; surname",
+        "糊": "muddled; paste; to stick on with paste",
+        "涂": "to smear; to scribble; to daub; surname",
+        "码": "number; numeral; symbol; yard",
+        "它": "it; other"
       }
     },
     {
@@ -10843,7 +11290,9 @@
         "险": "xiǎn",
         "安": "ān",
         "批": "pī",
-        "评": "píng"
+        "评": "píng",
+        "胆": "dǎn",
+        "迟": "chí"
       },
       "char_examples": {
         "被": [
@@ -10935,6 +11384,28 @@
         "迟": [],
         "批": [],
         "评": []
+      },
+      "char_gloss": {
+        "被": "bedding; a passive particle meaning \"by\"",
+        "霉": "mildew; mold; rot",
+        "取": "to take; to receive; to obtain; to select",
+        "局": "bureau; office; circumstance; game",
+        "寄": "to mail; to send; to transit; to deposit",
+        "封": "envelope; letter; to confer; to grant",
+        "排": "row; rank; file; to eliminate",
+        "队": "team; group; band; army unit",
+        "胆": "gallbladder; gall; guts; courage",
+        "怪": "unusual; strange; peculiar",
+        "注": "to concentrate; to focus",
+        "派": "clique; faction; group; sect",
+        "案": "file; legal case; bench; table",
+        "表": "to show; to express; to display; outside",
+        "危": "dangerous; precarious; high",
+        "险": "narrow pass; strategic point",
+        "安": "peaceful; tranquil; quiet",
+        "迟": "tardy; slow; late; to delay",
+        "批": "comment; criticism; batch; lot",
+        "评": "to appraise; to criticize; to evaluate"
       }
     },
     {
@@ -11421,7 +11892,9 @@
         "醉": "zuì",
         "幸": "xìng",
         "福": "fú",
-        "跟": "gēn"
+        "跟": "gēn",
+        "脾": "pí",
+        "岂": "qǐ"
       },
       "char_examples": {
         "堂": [
@@ -11591,6 +12064,28 @@
             "english": "had a quarrel with him"
           }
         ]
+      },
+      "char_gloss": {
+        "堂": "hall; large room; government office; cousins",
+        "举": "to raise; to recommend; to praise",
+        "婚": "to get married; marriage; wedding",
+        "入": "to enter; to come in; to join",
+        "俗": "social customs; vulgar; unrefined",
+        "娘": "mother; young girl; woman; wife",
+        "郎": "gentleman; young man; husband",
+        "恋": "love; to yearn for; to long for",
+        "反": "reverse; opposite; contrary; anti-",
+        "属": "class; category; type; family",
+        "虎": "tiger; brave; fierce; surname",
+        "脾": "spleen; pancreas; temper; disposition",
+        "架": "frame; rack; stand; to prop up",
+        "确": "certain; sure; definite; exact",
+        "实": "real; true; honest; sincere",
+        "醉": "intoxicated; drunk; addicted",
+        "幸": "favor; fortune; luck; surname",
+        "福": "happiness; good fortune; blessings",
+        "岂": "what; how",
+        "跟": "heel; to accompany; to follow; with"
       }
     }
   ]
