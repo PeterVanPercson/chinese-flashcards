@@ -23,7 +23,25 @@
       <span class="brand__sub">Level 2 · Integrated Textbook</span>
     </span>
   </a>
+
+  <div class="topbar__search" role="search">
+    <label class="searchbox">
+      <svg class="searchbox__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="searchInput" type="search" placeholder="Search 汉字, pinyin, English…" aria-label="Search all cards" autocomplete="off" spellcheck="false">
+      <kbd class="searchbox__kbd" aria-hidden="true">/</kbd>
+    </label>
+    <div id="searchResults" class="searchresults" role="listbox" aria-label="Search results" hidden></div>
+  </div>
+
   <nav class="topbar__nav" aria-label="Primary">
+    <a class="creditlink" href="https://husanmavlonov.com" target="_blank" rel="noopener noreferrer" title="Made by Husan Mavlonov">
+      <span class="creditlink__by">by</span>
+      <span class="creditlink__name">husanmavlonov.com</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+    </a>
+    <button id="searchBtn" class="iconbtn iconbtn--search" aria-label="Search" title="Search (/)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    </button>
     <button id="settingsBtn" class="iconbtn" aria-label="Settings" aria-haspopup="dialog">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -42,6 +60,33 @@
         <div class="stat"><span class="stat__num" id="statKnown">0</span><span class="stat__label">marked known</span></div>
         <div class="stat"><span class="stat__num" id="statStreak">0</span><span class="stat__label">day streak</span></div>
       </div>
+    </div>
+
+    <div class="quickstart" aria-label="Quick study options">
+      <a href="#/queue/due" class="qs qs--due" id="qsDue">
+        <span class="qs__count"><span id="qsDueCount">0</span></span>
+        <span class="qs__body">
+          <span class="qs__label">Due today</span>
+          <span class="qs__hint">spaced review across all lessons</span>
+        </span>
+        <span class="qs__arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="#/queue/weak" class="qs qs--weak" id="qsWeak">
+        <span class="qs__count"><span id="qsWeakCount">0</span></span>
+        <span class="qs__body">
+          <span class="qs__label">Weakest cards</span>
+          <span class="qs__hint">ones you keep marking Again / Hard</span>
+        </span>
+        <span class="qs__arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="#/queue/random" class="qs qs--random">
+        <span class="qs__count">20</span>
+        <span class="qs__body">
+          <span class="qs__label">Random mix</span>
+          <span class="qs__hint">20 cards across the whole textbook</span>
+        </span>
+        <span class="qs__arrow" aria-hidden="true">→</span>
+      </a>
     </div>
 
     <div class="lesson-grid-wrap">
@@ -87,7 +132,23 @@
         <span class="mode-card__icon" aria-hidden="true">字</span>
         <span class="mode-card__body">
           <span class="mode-card__title">Characters · 读写字</span>
-          <span class="mode-card__sub"><span id="cntChars">0</span> hanzi to read &amp; write</span>
+          <span class="mode-card__sub"><span id="cntChars">0</span> hanzi to read, write &amp; trace</span>
+        </span>
+        <span class="mode-card__arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="#" class="mode-card mode-card--listen" data-mode="listen" role="listitem">
+        <span class="mode-card__icon" aria-hidden="true">听</span>
+        <span class="mode-card__body">
+          <span class="mode-card__title">Listening drill</span>
+          <span class="mode-card__sub">audio first, tap to reveal</span>
+        </span>
+        <span class="mode-card__arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="#" class="mode-card mode-card--quiz" data-mode="quiz" role="listitem">
+        <span class="mode-card__icon" aria-hidden="true">问</span>
+        <span class="mode-card__body">
+          <span class="mode-card__title">Type-in quiz</span>
+          <span class="mode-card__sub">type the pinyin for active recall</span>
         </span>
         <span class="mode-card__arrow" aria-hidden="true">→</span>
       </a>
@@ -125,7 +186,11 @@
         <div class="card__inner">
           <div class="card__face card__face--front" id="cardFront">
             <div class="card__chinese" id="cardChinese">汉</div>
-            <div class="card__hint">Tap card or press Space to flip</div>
+            <div class="card__listen" id="cardListen" hidden>
+              <span class="card__listen-icon" aria-hidden="true">🎧</span>
+              <span class="card__listen-label">Listen, then tap to reveal</span>
+            </div>
+            <div class="card__hint" id="cardHint">Tap card or press Space to flip</div>
           </div>
           <div class="card__face card__face--back" id="cardBack">
             <div class="card__pinyin" id="cardPinyin">hàn</div>
@@ -134,6 +199,16 @@
           </div>
         </div>
       </button>
+    </div>
+
+    <!-- Quiz input (shown only in quiz mode) -->
+    <div class="quiz-panel" id="quizPanel" hidden>
+      <label for="quizInput" class="quiz-panel__label" id="quizPrompt">Type the pinyin (tones optional):</label>
+      <form class="quiz-panel__form" id="quizForm" autocomplete="off">
+        <input id="quizInput" class="quiz-panel__input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="e.g. haojiu bu jian">
+        <button type="submit" class="quiz-panel__check" id="quizCheck">Check</button>
+      </form>
+      <div class="quiz-panel__feedback" id="quizFeedback" aria-live="polite"></div>
     </div>
 
     <div class="audio-row">
@@ -251,11 +326,45 @@
   </form>
 </dialog>
 
+<!-- Stroke-order writing dialog -->
+<dialog id="writerDialog" class="dialog dialog--writer" aria-labelledby="writerTitle">
+  <div class="dialog__inner">
+    <header class="dialog__head">
+      <h2 id="writerTitle" class="dialog__title">
+        Practice writing <span id="writerChar" class="dialog__title-zh">字</span>
+      </h2>
+      <button class="iconbtn" id="writerClose" aria-label="Close writing practice">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="dialog__body writer-body">
+      <div class="writer-stage" id="writerStage" aria-live="polite"></div>
+      <div class="writer-info">
+        <div id="writerSubtitle" class="writer-info__sub">jiǔ · long ago; a long time</div>
+        <div id="writerStatus" class="writer-info__status">Tap <em>Show strokes</em> to watch, or <em>Trace</em> to practice.</div>
+      </div>
+      <div class="writer-actions">
+        <button type="button" class="btn btn--ghost" id="writerAnimate">Show strokes</button>
+        <button type="button" class="btn btn--primary" id="writerQuiz">Trace it</button>
+      </div>
+    </div>
+    <footer class="dialog__foot">
+      <small class="writer-cred">Stroke data: <a href="https://hanziwriter.org" target="_blank" rel="noopener noreferrer">Hanzi Writer</a></small>
+      <button type="button" class="btn btn--ghost" id="writerDone">Done</button>
+    </footer>
+  </div>
+</dialog>
+
 <footer class="footer">
   <span>Made for studying offline · data lives in your browser only</span>
   <span class="footer__source">Source: 拾级汉语 综合课本 第2级 · BLCU Press</span>
+  <span class="footer__credit">
+    Built by
+    <a href="https://husanmavlonov.com" target="_blank" rel="noopener noreferrer">Husan Mavlonov</a>
+  </span>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js" defer></script>
 <script src="assets/app.js" type="module"></script>
 </body>
 </html>

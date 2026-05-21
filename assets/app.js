@@ -19,19 +19,23 @@ const state = {
   data: null,
   view: 'home',
   lessonId: null,
-  mode: null,            // vocab | sentences | characters
+  mode: null,            // vocab | sentences | characters | listen | quiz
+  queueType: null,       // null | 'due' | 'weak' | 'random'
   deck: [],
   index: 0,
   flipped: false,
   shuffled: false,
   finished: false,
   reviewed: new Set(),
-  grades: {},            // cardKey -> grade
+  grades: {},            // cardKey -> grade (this session)
   audioManifest: null,   // { cardText: "file.mp3" }
   audioEl: null,         // shared HTMLAudioElement
   audioPlaying: false,   // true only while a clip/TTS is playing
   settings: loadSettings(),
   progress: loadProgress(),
+  searchIndex: null,     // built once after data loads
+  writer: null,          // active Hanzi Writer instance
+  writerChar: null,      // currently loaded char
 };
 
 function loadSettings() {
@@ -110,18 +114,28 @@ function routeFromHash() {
   } else if (parts[0] === 'lesson' && parts[1]) {
     state.view = 'lesson';
     state.lessonId = +parts[1];
+    state.queueType = null;
     $('#view-lesson').hidden = false;
     renderLesson();
   } else if (parts[0] === 'study' && parts[1] && parts[2]) {
     state.view = 'study';
     state.lessonId = +parts[1];
     state.mode = parts[2];
+    state.queueType = null;
+    $('#view-study').hidden = false;
+    startStudy();
+  } else if (parts[0] === 'queue' && parts[1]) {
+    state.view = 'study';
+    state.lessonId = null;
+    state.queueType = parts[1];
+    state.mode = 'queue';
     $('#view-study').hidden = false;
     startStudy();
   } else {
     location.hash = '#/';
   }
   window.scrollTo(0, 0);
+  closeSearchResults();
 }
 
 /* ---------------------- home view ---------------------- */
@@ -138,6 +152,14 @@ function renderHome() {
   $('#statSeen').textContent  = stats.seen;
   $('#statKnown').textContent = stats.known;
   $('#statStreak').textContent = state.progress.streak || 0;
+
+  // Quick-start chip counts
+  const due  = dueCards(999).length;
+  const weak = weakCards(999).length;
+  $('#qsDueCount').textContent  = due;
+  $('#qsWeakCount').textContent = weak;
+  const qsDue  = $('#qsDue');  if (qsDue)  qsDue.classList.toggle('is-empty', due  === 0);
+  const qsWeak = $('#qsWeak'); if (qsWeak) qsWeak.classList.toggle('is-empty', weak === 0);
 
   // Lesson grid
   const grid = $('#lessonGrid');
@@ -179,8 +201,117 @@ function computeOverallStats() {
 function lessonProgress(id) {
   const lp = state.progress.lessons[id] || {};
   const seen = Object.keys(lp).length;
-  const known = Object.values(lp).filter((g) => g === 'good' || g === 'easy').length;
+  const known = Object.values(lp).filter((rec) => {
+    const g = typeof rec === 'string' ? rec : rec.g;
+    return g === 'good' || g === 'easy';
+  }).length;
   return { seen, known };
+}
+
+/* ---------------------- SRS (very simple SM-2-ish) ---------------------- */
+const DAY = 24 * 60 * 60 * 1000;
+function srsRecord(cardKey, lessonId) {
+  const lp = state.progress.lessons[lessonId] || {};
+  const r = lp[cardKey];
+  if (!r) return { g: null, ivl: 0, ease: 2.5, reps: 0, due: 0 };
+  if (typeof r === 'string') return { g: r, ivl: 0, ease: 2.5, reps: 0, due: 0 };
+  return Object.assign({ g: null, ivl: 0, ease: 2.5, reps: 0, due: 0 }, r);
+}
+function srsApply(prev, grade) {
+  const now = Date.now();
+  let { ivl, ease, reps } = prev;
+  if (grade === 'again') {
+    ivl = 0;                                  // see again very soon
+    ease = Math.max(1.3, ease - 0.2);
+    reps = 0;
+  } else if (grade === 'hard') {
+    ivl = Math.max(1, Math.round((ivl || 1) * 1.2));
+    ease = Math.max(1.3, ease - 0.15);
+    reps = (reps || 0) + 1;
+  } else if (grade === 'good') {
+    ivl = reps < 1 ? 1 : reps < 2 ? 3 : Math.round((ivl || 1) * ease);
+    reps = (reps || 0) + 1;
+  } else if (grade === 'easy') {
+    ivl = reps < 1 ? 3 : Math.round((ivl || 2) * ease * 1.3);
+    ease = ease + 0.15;
+    reps = (reps || 0) + 1;
+  }
+  ivl = Math.min(ivl, 365);                    // cap
+  const due = grade === 'again' ? now + 60_000 : now + ivl * DAY;
+  return { g: grade, ivl, ease, reps, due };
+}
+function allCardsFlat() {
+  // Lazy: build once. Includes vocab + sentences + characters.
+  if (state._flat) return state._flat;
+  const flat = [];
+  for (const L of state.data.lessons) {
+    for (let i = 0; i < L.vocab.length; i++) {
+      const v = L.vocab[i];
+      flat.push({
+        lessonId: L.id, lessonTitle: L.title_zh, type: 'vocab',
+        key: `L${L.id}.v.${i}`,
+        front_zh: v.chinese, pinyin: v.pinyin, english: v.english, pos: v.pos || '',
+      });
+    }
+    for (let i = 0; i < (L.sentences || []).length; i++) {
+      const s = L.sentences[i];
+      flat.push({
+        lessonId: L.id, lessonTitle: L.title_zh, type: 'sentence',
+        key: `L${L.id}.s.${i}`,
+        front_zh: s.chinese, pinyin: s.pinyin, english: s.english, pos: '',
+      });
+    }
+    for (let i = 0; i < (L.characters || []).length; i++) {
+      const c = L.characters[i];
+      flat.push({
+        lessonId: L.id, lessonTitle: L.title_zh, type: 'character',
+        key: `L${L.id}.c.${i}`,
+        front_zh: c,
+        pinyin: (L.char_pinyin || {})[c] || '',
+        english: (L.char_gloss || {})[c] || '',
+        pos: '',
+        compounds: (L.char_compounds || {})[c] || [],
+        examples: (L.char_examples || {})[c] || [],
+      });
+    }
+  }
+  state._flat = flat;
+  return flat;
+}
+function dueCards(limit = 50) {
+  const now = Date.now();
+  const all = allCardsFlat();
+  const out = [];
+  for (const c of all) {
+    const r = srsRecord(c.key, c.lessonId);
+    if (r.g && r.due && r.due <= now) out.push({ ...c, _due: r.due });
+  }
+  out.sort((a, b) => a._due - b._due);
+  return out.slice(0, limit);
+}
+function weakCards(limit = 30) {
+  const all = allCardsFlat();
+  const scored = [];
+  for (const c of all) {
+    const r = srsRecord(c.key, c.lessonId);
+    if (!r.g) continue;
+    // weakness = lower ease + recent 'again'/'hard' grades
+    const penalty = r.g === 'again' ? 2 : r.g === 'hard' ? 1 : 0;
+    const score = penalty - r.ease;
+    if (penalty > 0 || r.ease < 2.3) scored.push({ ...c, _score: score });
+  }
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, limit);
+}
+function randomCards(n = 20) {
+  const all = allCardsFlat();
+  const picks = [];
+  const used = new Set();
+  while (picks.length < n && picks.length < all.length) {
+    const i = Math.floor(Math.random() * all.length);
+    if (!used.has(i)) { used.add(i); picks.push(all[i]); }
+  }
+  return picks;
 }
 
 /* ---------------------- lesson view ---------------------- */
@@ -217,16 +348,25 @@ function renderLesson() {
 
 /* ---------------------- study view ---------------------- */
 function startStudy() {
-  const L = state.data.lessons.find((x) => x.id === state.lessonId);
-  if (!L) { location.hash = '#/'; return; }
-
-  state.deck = buildDeck(L, state.mode);
+  let backHref = '#/';
+  let label = '';
+  if (state.queueType) {
+    state.deck = buildQueueDeck(state.queueType);
+    label = queueLabel(state.queueType);
+    $('#studyLessonLabel').textContent = label;
+    $('#studyModeLabel').textContent = `${state.deck.length} cards across all lessons`;
+  } else {
+    const L = state.data.lessons.find((x) => x.id === state.lessonId);
+    if (!L) { location.hash = '#/'; return; }
+    state.deck = buildDeck(L, state.mode);
+    backHref = `#/lesson/${L.id}`;
+    $('#studyLessonLabel').textContent = `Lesson ${L.id} · ${L.title_zh}`;
+    $('#studyModeLabel').textContent = modeLabel(state.mode);
+  }
   if (state.shuffled) shuffleInPlace(state.deck);
 
-  $('#studyLessonLabel').textContent = `Lesson ${L.id} · ${L.title_zh}`;
-  $('#studyModeLabel').textContent = modeLabel(state.mode);
-  $('#studyBack').href = `#/lesson/${L.id}`;
-  $('#finishedBack').href = `#/lesson/${L.id}`;
+  $('#studyBack').href = backHref;
+  $('#finishedBack').href = backHref;
   $('#studyTotal').textContent = state.deck.length;
 
   state.index = 0;
@@ -235,10 +375,31 @@ function startStudy() {
   state.reviewed.clear();
   state.grades = {};
 
+  // Show / hide UI bits specific to certain modes
+  const isQuiz = state.mode === 'quiz';
+  $('#quizPanel').hidden = !isQuiz;
+
   renderCard();
 }
 function modeLabel(m) {
-  return { vocab: 'Vocabulary', sentences: 'Sentences', characters: 'Characters · 读写字' }[m] || m;
+  return ({
+    vocab: 'Vocabulary',
+    sentences: 'Sentences',
+    characters: 'Characters · 读写字',
+    listen: 'Listening drill',
+    quiz: 'Type-in quiz',
+  })[m] || m;
+}
+function queueLabel(t) {
+  return ({ due: 'Due today', weak: 'Weakest cards', random: 'Random mix' })[t] || 'Queue';
+}
+function buildQueueDeck(type) {
+  let cards = [];
+  if (type === 'due')    cards = dueCards(60);
+  if (type === 'weak')   cards = weakCards(30);
+  if (type === 'random') cards = randomCards(20);
+  // Cards already match the shape we use; ensure key + type fields are set.
+  return cards.map((c) => ({ ...c }));
 }
 function buildDeck(L, mode) {
   if (mode === 'vocab') {
@@ -272,14 +433,35 @@ function buildDeck(L, mode) {
       return {
         key: `L${L.id}.c.${i}`,
         type: 'character',
+        lessonId: L.id,
         front_zh: c,
         pinyin: charPy[c] || '',
-        english: charGloss[c] || '',   // per-character meaning (makemeahanzi)
+        english: charGloss[c] || '',
         pos: '',
         compounds: comps,
         examples: exs,
       };
     });
+  }
+  if (mode === 'listen') {
+    // Audio-first deck = vocab + sentences from this lesson (the rich material).
+    const deck = [];
+    L.vocab.forEach((v, i) => deck.push({
+      key: `L${L.id}.v.${i}`, type: 'vocab', lessonId: L.id,
+      front_zh: v.chinese, pinyin: v.pinyin, english: v.english, pos: v.pos || '',
+    }));
+    (L.sentences || []).forEach((s, i) => deck.push({
+      key: `L${L.id}.s.${i}`, type: 'sentence', lessonId: L.id,
+      front_zh: s.chinese, pinyin: s.pinyin, english: s.english, pos: '',
+    }));
+    return deck;
+  }
+  if (mode === 'quiz') {
+    // Vocab is the cleanest target for type-in pinyin quiz.
+    return L.vocab.map((v, i) => ({
+      key: `L${L.id}.v.${i}`, type: 'vocab', lessonId: L.id,
+      front_zh: v.chinese, pinyin: v.pinyin, english: v.english, pos: v.pos || '',
+    }));
   }
   return [];
 }
@@ -306,25 +488,64 @@ function renderCard() {
   const cardEl = $('#card');
   cardEl.classList.remove(
     'is-flipped', 'is-marked-again', 'is-marked-good',
-    'card--sentence', 'card--character',
+    'card--sentence', 'card--character', 'card--listen', 'card--quiz',
     'card--front-en',
     'card--size-m', 'card--size-l', 'card--size-xl'
   );
   cardEl.classList.add(`card--size-${state.settings.size}`);
-  if (card.type === 'character') {
-    cardEl.classList.add('card--character');
-  } else if (card.type === 'sentence' || (card.type === 'vocab' && card.front_zh.length > 4)) {
-    cardEl.classList.add('card--sentence');
+
+  // Mode-driven layout classes (listen/quiz can apply on top of card.type).
+  const isListen = state.mode === 'listen';
+  const isQuiz   = state.mode === 'quiz';
+  if (isListen) cardEl.classList.add('card--listen');
+  if (isQuiz)   cardEl.classList.add('card--quiz');
+
+  if (!isListen && !isQuiz) {
+    if (card.type === 'character') {
+      cardEl.classList.add('card--character');
+    } else if (card.type === 'sentence' || (card.type === 'vocab' && card.front_zh.length > 4)) {
+      cardEl.classList.add('card--sentence');
+    }
   }
   cardEl.setAttribute('aria-pressed', 'false');
   state.flipped = false;
 
-  // Character cards: custom back with compounds & examples (always Chinese-front).
-  if (card.type === 'character') {
+  // --- Front content ---
+  $('#cardListen').hidden = !isListen;
+  $('#cardChinese').hidden = false;
+  if (isListen) {
+    // Hide the Chinese on the front; show a "Listen" placeholder.
+    $('#cardChinese').hidden = true;
+    $('#cardHint').textContent = 'Tap card or press Space to reveal';
+  } else if (isQuiz) {
+    // Show English as the prompt; ask for pinyin below the card.
+    $('#cardChinese').textContent = card.english || '—';
+    $('#cardHint').textContent = 'Type below — tap card to reveal';
+  } else {
+    $('#cardHint').textContent = 'Tap card or press Space to flip';
+  }
+
+  // --- Back content ---
+  if (card.type === 'character' && !isListen && !isQuiz) {
     $('#cardChinese').textContent = card.front_zh;
     $('#cardPinyin').textContent  = card.pinyin || '';
     $('#cardEnglish').innerHTML   = renderCharBack(card);
     $('#cardPos').textContent = '读写字';
+  } else if (isListen) {
+    // Back shows everything: hanzi (big), pinyin, English
+    $('#cardPinyin').textContent  = card.pinyin || '';
+    $('#cardEnglish').innerHTML   =
+      `<div class="listen-back__zh">${escapeHTML(card.front_zh)}</div>
+       <div class="listen-back__en">${escapeHTML(card.english || '')}</div>`;
+    $('#cardPos').textContent = card.pos || '';
+  } else if (isQuiz) {
+    // Back shows the answer: hanzi + pinyin
+    $('#cardPinyin').textContent  = card.pinyin || '';
+    $('#cardEnglish').innerHTML   =
+      `<div class="listen-back__zh">${escapeHTML(card.front_zh)}</div>
+       <div class="listen-back__en">${escapeHTML(card.english || '')}</div>`;
+    $('#cardPos').textContent = card.pos || '';
+    resetQuiz(card);
   } else {
     const showZhFirst = state.settings.front === 'zh';
     if (showZhFirst) {
@@ -332,7 +553,6 @@ function renderCard() {
       $('#cardPinyin').textContent  = card.pinyin || '';
       $('#cardEnglish').textContent = card.english || '';
     } else {
-      // Don't force English into the giant serif slot — swap roles & style.
       cardEl.classList.add('card--front-en');
       $('#cardChinese').textContent = card.english || '—';
       $('#cardPinyin').textContent  = card.pinyin || '';
@@ -493,7 +713,132 @@ function renderCharBack(card) {
       <em>读写字 — introduced here for reading &amp; writing practice.</em>
     </div>`;
   }
+  // Practice-writing button for single characters (Hanzi Writer)
+  html += `<div class="char-back__write">
+    <button type="button" class="btn btn--ghost char-back__writebtn"
+            data-write-char="${escapeHTML(card.front_zh)}"
+            data-write-py="${escapeHTML(card.pinyin || '')}"
+            data-write-en="${escapeHTML(card.english || '')}">
+      ✍︎ Practice writing
+    </button>
+  </div>`;
   return html;
+}
+
+/* ---------------------- quiz mode ---------------------- */
+
+// Strip tone marks (and "ü"→"u") + lowercase + collapse spaces.
+function normPinyin(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')           // diacritics
+    .replace(/ü|ü/g, 'u')
+    .replace(/[^a-z0-9]+/g, ' ')                // punctuation/ellipsis → space
+    .trim();
+}
+function resetQuiz(card) {
+  if (state.mode !== 'quiz') return;
+  const inp = $('#quizInput');
+  const fb  = $('#quizFeedback');
+  $('#quizPanel').hidden = false;
+  if (inp) { inp.value = ''; inp.disabled = false; inp.classList.remove('is-wrong','is-right'); }
+  if (fb) { fb.textContent = ''; fb.className = 'quiz-panel__feedback'; }
+  $('#quizPrompt').textContent = 'Type the pinyin (tones optional):';
+  setTimeout(() => inp && inp.focus(), 30);
+}
+function checkQuiz(e) {
+  if (e) e.preventDefault();
+  if (state.mode !== 'quiz') return;
+  const card = state.deck[state.index];
+  if (!card) return;
+  const inp = $('#quizInput');
+  const fb  = $('#quizFeedback');
+  const guess = normPinyin(inp.value);
+  const truth = normPinyin(card.pinyin);
+  if (!guess) { inp.focus(); return; }
+  if (guess === truth) {
+    inp.classList.add('is-right');
+    fb.className = 'quiz-panel__feedback is-right';
+    fb.textContent = `✓  ${card.pinyin} — ${card.english}`;
+    // Auto-reveal the answer on the card
+    if (!state.flipped) flipCard();
+  } else {
+    inp.classList.add('is-wrong');
+    fb.className = 'quiz-panel__feedback is-wrong';
+    fb.innerHTML = `✗  You typed <strong>${escapeHTML(inp.value)}</strong> — expected <strong>${escapeHTML(card.pinyin)}</strong>`;
+  }
+  inp.disabled = true;
+}
+
+/* ---------------------- Hanzi Writer ---------------------- */
+
+function openWriter(ch, py, en) {
+  const dlg = $('#writerDialog');
+  if (!dlg) return;
+  $('#writerChar').textContent = ch;
+  $('#writerSubtitle').textContent = [py, en].filter(Boolean).join(' · ');
+  $('#writerStatus').textContent = 'Tap Show strokes to watch, or Trace to practice.';
+  const stage = $('#writerStage');
+  stage.innerHTML = '';
+  state.writerChar = ch;
+  state.writer = null;
+
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', 'open');
+
+  // Defer instantiation slightly so the modal sizes correctly first.
+  setTimeout(() => initWriter(ch), 80);
+}
+function initWriter(ch) {
+  if (!window.HanziWriter) {
+    $('#writerStatus').textContent = 'Loading stroke-order library…';
+    // Retry after the CDN script loads
+    let tries = 0;
+    const iv = setInterval(() => {
+      if (window.HanziWriter) { clearInterval(iv); initWriter(ch); }
+      else if (++tries > 30) { clearInterval(iv); $('#writerStatus').textContent = 'Could not load stroke data. Check your connection.'; }
+    }, 200);
+    return;
+  }
+  // Hanzi Writer accepts colors as literal SVG values — CSS vars don't work
+  // inside SVG fill/stroke attributes, so use concrete colors.
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (document.documentElement.getAttribute('data-theme') !== 'light'
+        && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  try {
+    state.writer = window.HanziWriter.create('writerStage', ch, {
+      width: 280,
+      height: 280,
+      padding: 12,
+      showOutline: true,
+      showCharacter: true,
+      strokeAnimationSpeed: 1,
+      delayBetweenStrokes: 120,
+      drawingWidth: 30,
+      strokeColor:    isDark ? '#F0EBDD' : '#1B1A18',
+      radicalColor:   '#B43A2E',
+      outlineColor:   isDark ? 'rgba(240,235,221,0.25)' : 'rgba(0,0,0,0.18)',
+      highlightColor: '#B43A2E',
+      drawingColor:   isDark ? '#F0EBDD' : '#1B1A18',
+      onLoadCharDataSuccess: () => { $('#writerStatus').textContent = 'Tap Show strokes to watch, or Trace to practice.'; },
+      onLoadCharDataError: () => { $('#writerStatus').textContent = `No stroke data for "${ch}" — sorry.`; },
+    });
+  } catch (e) {
+    $('#writerStatus').textContent = 'Could not start writing practice.';
+  }
+}
+function closeWriter() {
+  const dlg = $('#writerDialog');
+  if (!dlg) return;
+  if (state.writer && typeof state.writer.cancelQuiz === 'function') {
+    try { state.writer.cancelQuiz(); } catch (e) {}
+  }
+  if (typeof dlg.close === 'function') dlg.close();
+  else dlg.removeAttribute('open');
+  state.writer = null;
+  state.writerChar = null;
+  $('#writerStage').innerHTML = '';
 }
 
 function flipCard() {
@@ -510,11 +855,17 @@ function grade(g) {
   state.grades[card.key] = g;
   state.reviewed.add(card.key);
 
-  // persist per-lesson
-  const lp = state.progress.lessons[state.lessonId] || {};
-  lp[card.key] = g;
-  state.progress.lessons[state.lessonId] = lp;
-  saveProgress();
+  // Persist with SRS schedule. Cards from cross-lesson queues carry their
+  // own lessonId; in normal study we fall back to state.lessonId.
+  const lessonId = card.lessonId || state.lessonId;
+  if (lessonId != null) {
+    const lp = state.progress.lessons[lessonId] || {};
+    const prev = srsRecord(card.key, lessonId);
+    lp[card.key] = srsApply(prev, g);
+    state.progress.lessons[lessonId] = lp;
+    saveProgress();
+    state._flat = null;          // invalidate flat cache (counts may change)
+  }
 
   const cEl = $('#card');
   if (g === 'again') cEl.classList.add('is-marked-again');
@@ -612,10 +963,72 @@ function bindGlobalEvents() {
     renderCard();
   });
 
+  // Quiz: form submit checks the answer
+  const quizForm = $('#quizForm');
+  if (quizForm) quizForm.addEventListener('submit', checkQuiz);
+
+  // Delegation: "Practice writing" button on character card back
+  $('#cardEnglish').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-write-char]');
+    if (!btn) return;
+    e.stopPropagation();
+    openWriter(btn.dataset.writeChar, btn.dataset.writePy, btn.dataset.writeEn);
+  });
+
+  // Writer dialog controls
+  const wDlg = $('#writerDialog');
+  if (wDlg) {
+    $('#writerAnimate').addEventListener('click', () => {
+      if (!state.writer) return;
+      try { state.writer.cancelQuiz(); } catch (e) {}
+      $('#writerStatus').textContent = 'Watch the strokes…';
+      state.writer.animateCharacter({ onComplete: () => { $('#writerStatus').textContent = 'Now try tracing it.'; } });
+    });
+    $('#writerQuiz').addEventListener('click', () => {
+      if (!state.writer) return;
+      $('#writerStatus').textContent = 'Trace each stroke in order…';
+      state.writer.quiz({
+        showHintAfterMisses: 3,
+        onMistake: () => { $('#writerStatus').textContent = 'Almost — try that stroke again.'; },
+        onCorrectStroke: ({ strokesRemaining }) => {
+          $('#writerStatus').textContent = strokesRemaining > 0
+            ? `${strokesRemaining} stroke${strokesRemaining === 1 ? '' : 's'} to go.`
+            : 'Last stroke!';
+        },
+        onComplete: ({ totalMistakes }) => {
+          $('#writerStatus').textContent = totalMistakes === 0
+            ? '✓ Perfect — no mistakes.'
+            : `✓ Done. ${totalMistakes} mistake${totalMistakes === 1 ? '' : 's'}.`;
+        },
+      });
+    });
+    $('#writerClose').addEventListener('click', closeWriter);
+    $('#writerDone').addEventListener('click', closeWriter);
+    wDlg.addEventListener('cancel', (e) => { e.preventDefault(); closeWriter(); });
+    wDlg.addEventListener('click', (e) => {
+      // click on backdrop (the dialog element itself, not its inner content)
+      if (e.target === wDlg) closeWriter();
+    });
+  }
+
+  // Search
+  bindSearch();
+
   document.addEventListener('keydown', onKey);
 }
 
 function onKey(e) {
+  // Global: "/" focuses search from anywhere
+  if (e.key === '/' && !e.target.matches('input, textarea, [contenteditable]')) {
+    e.preventDefault();
+    const inp = $('#searchInput');
+    if (inp) inp.focus();
+    return;
+  }
+  // Esc closes search results
+  if (e.key === 'Escape') {
+    if (!$('#searchResults').hidden) { closeSearchResults(); return; }
+  }
   if (state.view !== 'study') return;
   if (e.target.matches('input, textarea, select, [contenteditable]')) return;
   const k = e.key.toLowerCase();
@@ -629,6 +1042,106 @@ function onKey(e) {
   if (k === 'p') { e.preventDefault(); playCardAudio(); return; }
   if (k === 's') { $('#btnShuffle').click(); return; }
   if (k === 'r') { $('#btnReset').click(); return; }
+}
+
+/* ---------------------- search ---------------------- */
+function buildSearchIndex() {
+  // Lightweight: each entry stores searchable lowercase text + a route.
+  const idx = [];
+  for (const L of state.data.lessons) {
+    for (let i = 0; i < L.vocab.length; i++) {
+      const v = L.vocab[i];
+      idx.push({
+        zh: v.chinese, py: v.pinyin, en: v.english,
+        sub: `Lesson ${L.id} · ${L.title_zh}`,
+        route: `#/study/${L.id}/vocab`,
+        kind: 'word',
+        haystack: (v.chinese + ' ' + v.pinyin + ' ' + v.english).toLowerCase() + ' ' + normPinyin(v.pinyin),
+      });
+    }
+    for (let i = 0; i < (L.sentences || []).length; i++) {
+      const s = L.sentences[i];
+      idx.push({
+        zh: s.chinese, py: s.pinyin, en: s.english,
+        sub: `Lesson ${L.id} · ${L.title_zh}`,
+        route: `#/study/${L.id}/sentences`,
+        kind: 'sentence',
+        haystack: (s.chinese + ' ' + s.pinyin + ' ' + s.english).toLowerCase() + ' ' + normPinyin(s.pinyin),
+      });
+    }
+    for (const c of (L.characters || [])) {
+      const py = (L.char_pinyin || {})[c] || '';
+      const en = (L.char_gloss || {})[c] || '';
+      idx.push({
+        zh: c, py, en,
+        sub: `Lesson ${L.id} · 读写字`,
+        route: `#/study/${L.id}/characters`,
+        kind: 'hanzi',
+        haystack: (c + ' ' + py + ' ' + en).toLowerCase() + ' ' + normPinyin(py),
+      });
+    }
+  }
+  state.searchIndex = idx;
+}
+function bindSearch() {
+  const inp = $('#searchInput');
+  const out = $('#searchResults');
+  const btn = $('#searchBtn');
+  if (!inp || !out) return;
+  if (btn) btn.addEventListener('click', () => { inp.focus(); });
+  inp.addEventListener('input', () => doSearch(inp.value));
+  inp.addEventListener('focus', () => { if (inp.value.trim()) doSearch(inp.value); });
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { inp.value = ''; closeSearchResults(); inp.blur(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const first = out.querySelector('.searchresult');
+      if (first) first.click();
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const first = out.querySelector('.searchresult');
+      if (first) first.focus();
+    }
+  });
+  // Click outside closes
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.topbar__search') && !e.target.closest('#searchBtn')) {
+      closeSearchResults();
+    }
+  });
+}
+function closeSearchResults() {
+  const out = $('#searchResults');
+  if (out) { out.hidden = true; out.innerHTML = ''; }
+}
+function doSearch(q) {
+  const out = $('#searchResults');
+  q = String(q || '').trim().toLowerCase();
+  if (!q) { closeSearchResults(); return; }
+  if (!state.searchIndex) buildSearchIndex();
+  const nq = normPinyin(q);
+  const hits = [];
+  for (const it of state.searchIndex) {
+    if (it.haystack.includes(q) || (nq && it.haystack.includes(nq))) {
+      hits.push(it);
+      if (hits.length >= 25) break;
+    }
+  }
+  if (!hits.length) {
+    out.hidden = false;
+    out.innerHTML = `<div class="searchresult searchresult--empty">No matches for "${escapeHTML(q)}".</div>`;
+    return;
+  }
+  out.hidden = false;
+  out.innerHTML = hits.map((h) => `
+    <a class="searchresult searchresult--${h.kind}" href="${h.route}" tabindex="0">
+      <span class="searchresult__zh">${escapeHTML(h.zh)}</span>
+      <span class="searchresult__py">${escapeHTML(h.py)}</span>
+      <span class="searchresult__en">${escapeHTML(h.en)}</span>
+      <span class="searchresult__sub">${escapeHTML(h.sub)}</span>
+    </a>
+  `).join('');
 }
 
 /* ---------------------- settings dialog ---------------------- */
