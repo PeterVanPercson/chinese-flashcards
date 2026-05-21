@@ -30,7 +30,8 @@ const state = {
   grades: {},            // cardKey -> grade (this session)
   audioManifest: null,   // { cardText: "file.mp3" }
   audioEl: null,         // shared HTMLAudioElement
-  audioPlaying: false,   // true only while a clip/TTS is playing
+  audioPlaying: false,   // true only while a REAL clip/TTS is playing
+  audioUnlocked: false,  // true once the element has been blessed by a user gesture
   settings: loadSettings(),
   progress: loadProgress(),
   searchIndex: null,     // built once after data loads
@@ -46,7 +47,7 @@ function loadSettings() {
   return defaultSettings();
 }
 function defaultSettings() {
-  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false };
+  return { theme: 'auto', front: 'zh', size: 'l', reduceMotion: false, autoplay: true };
 }
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
@@ -507,19 +508,44 @@ function renderCard() {
   const ab = $('#audioBtn');
   if (ab) ab.disabled = false;
   setAudioBtnState(false);
+
+  // Auto-play this card's pronunciation (silent unlock pattern means
+  // this will succeed on every browser as long as the user has tapped
+  // anywhere on the page at least once — which they always have by
+  // the time they land on a card).
+  autoplayIfReady();
 }
 
 /* ---------------------- audio (hybrid) ---------------------- */
 
-// One reusable <audio> element. Playback is always triggered by a
-// direct button/key press — itself the user gesture every browser
-// requires — so no autoplay-unlock workaround is needed.
+// One reusable <audio> element. The first user gesture anywhere
+// "unlocks" it (plays a silent WAV), after which programmatic .play()
+// calls — like autoplay on each card render — are allowed by iOS
+// Safari and mobile Chrome for the rest of the session.
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+
 function getAudioEl() {
   if (!state.audioEl) {
     state.audioEl = new Audio();
     state.audioEl.preload = 'auto';
   }
   return state.audioEl;
+}
+
+function unlockAudio() {
+  if (state.audioUnlocked) return;
+  state.audioUnlocked = true;
+  const a = getAudioEl();
+  try {
+    a.muted = true;
+    a.src = SILENT_WAV;
+    const p = a.play();
+    if (p && p.then) {
+      p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; })
+       .catch(() => { a.muted = false; });
+    } else { a.pause(); a.muted = false; }
+  } catch (e) { a.muted = false; }
 }
 
 function currentSpeakText() {
@@ -589,26 +615,43 @@ function speakFallback(text) {
   } catch (e) { state.audioPlaying = false; flashAudioUnavailable(); }
 }
 
-function playCardAudio() {
+function playCardAudio(opts = {}) {
+  const quiet = !!opts.quiet;       // autoplay: never flash "unavailable"
   const text = currentSpeakText();
   if (!text) return;
 
-  // Press again while playing → stop (toggle).
-  if (state.audioPlaying) { stopAudio(); return; }
+  // Press again while playing → stop (toggle). Skip for autoplay.
+  if (state.audioPlaying && !quiet) { stopAudio(); return; }
+  if (state.audioPlaying && quiet)  { stopAudio(); }    // make room for new clip
 
   const file = state.audioManifest && state.audioManifest[text];
   if (file) {
     const a = getAudioEl();
     a.src = `assets/audio/${file}`;
     a.onended = () => { state.audioPlaying = false; setAudioBtnState(false); };
-    a.onerror = () => { state.audioPlaying = false; speakFallback(text); }; // missing → TTS
+    a.onerror = () => {
+      state.audioPlaying = false;
+      if (quiet) setAudioBtnState(false); else speakFallback(text);
+    };
     state.audioPlaying = true;
     setAudioBtnState(true);
     const p = a.play();
-    if (p && p.catch) p.catch(() => { state.audioPlaying = false; speakFallback(text); });
-  } else {
-    speakFallback(text);                            // no pre-gen clip → TTS
+    if (p && p.catch) p.catch(() => {
+      state.audioPlaying = false;
+      setAudioBtnState(false);
+      if (!quiet) speakFallback(text);
+    });
+  } else if (!quiet) {
+    speakFallback(text);                            // no pre-gen clip → TTS (manual only)
   }
+}
+
+function autoplayIfReady() {
+  if (!state.settings.autoplay) return;
+  if (!state.audioUnlocked) return;          // first gesture hasn't happened yet
+  if (!state.deck.length) return;
+  // tiny delay so the flip-reset visual settles before sound starts
+  setTimeout(() => playCardAudio({ quiet: true }), 60);
 }
 
 function renderCharBack(card) {
@@ -822,6 +865,15 @@ function shuffleInPlace(arr) {
 
 /* ---------------------- events ---------------------- */
 function bindGlobalEvents() {
+  // Unlock audio on the very first user interaction (any kind). Capture
+  // phase so it runs even before route changes consume the event.
+  const UNLOCK = ['pointerdown', 'touchstart', 'mousedown', 'click', 'keydown'];
+  const unlockOnce = () => {
+    unlockAudio();
+    UNLOCK.forEach((ev) => document.removeEventListener(ev, unlockOnce, true));
+  };
+  UNLOCK.forEach((ev) => document.addEventListener(ev, unlockOnce, true));
+
   $('#card').addEventListener('click', flipCard);
 
   $('#audioBtn').addEventListener('click', (e) => {
@@ -1076,6 +1128,7 @@ function bindSettingsDialog() {
     $('#setTheme').value         = state.settings.theme;
     $('#setFront').value         = state.settings.front;
     $('#setSize').value          = state.settings.size;
+    $('#setAutoplay').checked    = !!state.settings.autoplay;
     $('#setReduceMotion').checked = !!state.settings.reduceMotion;
     if (typeof dlg.showModal === 'function') dlg.showModal();
     else dlg.setAttribute('open', 'open');
@@ -1084,6 +1137,7 @@ function bindSettingsDialog() {
   $('#setTheme').addEventListener('change', (e) => { state.settings.theme = e.target.value; applySettings(); saveSettings(); });
   $('#setFront').addEventListener('change', (e) => { state.settings.front = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
   $('#setSize').addEventListener('change', (e) => { state.settings.size = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
+  $('#setAutoplay').addEventListener('change', (e) => { state.settings.autoplay = e.target.checked; saveSettings(); });
   $('#setReduceMotion').addEventListener('change', (e) => { state.settings.reduceMotion = e.target.checked; saveSettings(); applySettings(); });
 
   $('#setResetProgress').addEventListener('click', () => {
