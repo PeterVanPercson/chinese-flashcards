@@ -19,7 +19,7 @@ const state = {
   data: null,
   view: 'home',
   lessonId: null,
-  mode: null,            // vocab | sentences | characters | listen | quiz
+  mode: null,            // vocab | sentences | characters
   queueType: null,       // null | 'due' | 'weak' | 'random'
   deck: [],
   index: 0,
@@ -120,8 +120,11 @@ function routeFromHash() {
   } else if (parts[0] === 'study' && parts[1] && parts[2]) {
     state.view = 'study';
     state.lessonId = +parts[1];
-    state.mode = parts[2];
+    // Legacy URLs for the removed modes redirect to vocab
+    const m = parts[2];
+    state.mode = (m === 'listen' || m === 'quiz') ? 'vocab' : m;
     state.queueType = null;
+    if (state.mode !== m) { location.hash = `#/study/${parts[1]}/${state.mode}`; return; }
     $('#view-study').hidden = false;
     startStudy();
   } else if (parts[0] === 'queue' && parts[1]) {
@@ -135,7 +138,7 @@ function routeFromHash() {
     location.hash = '#/';
   }
   window.scrollTo(0, 0);
-  closeSearchResults();
+  closeSearch();
 }
 
 /* ---------------------- home view ---------------------- */
@@ -375,10 +378,6 @@ function startStudy() {
   state.reviewed.clear();
   state.grades = {};
 
-  // Show / hide UI bits specific to certain modes
-  const isQuiz = state.mode === 'quiz';
-  $('#quizPanel').hidden = !isQuiz;
-
   renderCard();
 }
 function modeLabel(m) {
@@ -386,8 +385,6 @@ function modeLabel(m) {
     vocab: 'Vocabulary',
     sentences: 'Sentences',
     characters: 'Characters · 读写字',
-    listen: 'Listening drill',
-    quiz: 'Type-in quiz',
   })[m] || m;
 }
 function queueLabel(t) {
@@ -443,26 +440,6 @@ function buildDeck(L, mode) {
       };
     });
   }
-  if (mode === 'listen') {
-    // Audio-first deck = vocab + sentences from this lesson (the rich material).
-    const deck = [];
-    L.vocab.forEach((v, i) => deck.push({
-      key: `L${L.id}.v.${i}`, type: 'vocab', lessonId: L.id,
-      front_zh: v.chinese, pinyin: v.pinyin, english: v.english, pos: v.pos || '',
-    }));
-    (L.sentences || []).forEach((s, i) => deck.push({
-      key: `L${L.id}.s.${i}`, type: 'sentence', lessonId: L.id,
-      front_zh: s.chinese, pinyin: s.pinyin, english: s.english, pos: '',
-    }));
-    return deck;
-  }
-  if (mode === 'quiz') {
-    // Vocab is the cleanest target for type-in pinyin quiz.
-    return L.vocab.map((v, i) => ({
-      key: `L${L.id}.v.${i}`, type: 'vocab', lessonId: L.id,
-      front_zh: v.chinese, pinyin: v.pinyin, english: v.english, pos: v.pos || '',
-    }));
-  }
   return [];
 }
 
@@ -488,64 +465,25 @@ function renderCard() {
   const cardEl = $('#card');
   cardEl.classList.remove(
     'is-flipped', 'is-marked-again', 'is-marked-good',
-    'card--sentence', 'card--character', 'card--listen', 'card--quiz',
+    'card--sentence', 'card--character',
     'card--front-en',
     'card--size-m', 'card--size-l', 'card--size-xl'
   );
   cardEl.classList.add(`card--size-${state.settings.size}`);
-
-  // Mode-driven layout classes (listen/quiz can apply on top of card.type).
-  const isListen = state.mode === 'listen';
-  const isQuiz   = state.mode === 'quiz';
-  if (isListen) cardEl.classList.add('card--listen');
-  if (isQuiz)   cardEl.classList.add('card--quiz');
-
-  if (!isListen && !isQuiz) {
-    if (card.type === 'character') {
-      cardEl.classList.add('card--character');
-    } else if (card.type === 'sentence' || (card.type === 'vocab' && card.front_zh.length > 4)) {
-      cardEl.classList.add('card--sentence');
-    }
+  if (card.type === 'character') {
+    cardEl.classList.add('card--character');
+  } else if (card.type === 'sentence' || (card.type === 'vocab' && card.front_zh.length > 4)) {
+    cardEl.classList.add('card--sentence');
   }
   cardEl.setAttribute('aria-pressed', 'false');
   state.flipped = false;
+  $('#cardHint').textContent = 'Tap card or press Space to flip';
 
-  // --- Front content ---
-  $('#cardListen').hidden = !isListen;
-  $('#cardChinese').hidden = false;
-  if (isListen) {
-    // Hide the Chinese on the front; show a "Listen" placeholder.
-    $('#cardChinese').hidden = true;
-    $('#cardHint').textContent = 'Tap card or press Space to reveal';
-  } else if (isQuiz) {
-    // Show English as the prompt; ask for pinyin below the card.
-    $('#cardChinese').textContent = card.english || '—';
-    $('#cardHint').textContent = 'Type below — tap card to reveal';
-  } else {
-    $('#cardHint').textContent = 'Tap card or press Space to flip';
-  }
-
-  // --- Back content ---
-  if (card.type === 'character' && !isListen && !isQuiz) {
+  if (card.type === 'character') {
     $('#cardChinese').textContent = card.front_zh;
     $('#cardPinyin').textContent  = card.pinyin || '';
     $('#cardEnglish').innerHTML   = renderCharBack(card);
     $('#cardPos').textContent = '读写字';
-  } else if (isListen) {
-    // Back shows everything: hanzi (big), pinyin, English
-    $('#cardPinyin').textContent  = card.pinyin || '';
-    $('#cardEnglish').innerHTML   =
-      `<div class="listen-back__zh">${escapeHTML(card.front_zh)}</div>
-       <div class="listen-back__en">${escapeHTML(card.english || '')}</div>`;
-    $('#cardPos').textContent = card.pos || '';
-  } else if (isQuiz) {
-    // Back shows the answer: hanzi + pinyin
-    $('#cardPinyin').textContent  = card.pinyin || '';
-    $('#cardEnglish').innerHTML   =
-      `<div class="listen-back__zh">${escapeHTML(card.front_zh)}</div>
-       <div class="listen-back__en">${escapeHTML(card.english || '')}</div>`;
-    $('#cardPos').textContent = card.pos || '';
-    resetQuiz(card);
   } else {
     const showZhFirst = state.settings.front === 'zh';
     if (showZhFirst) {
@@ -725,7 +663,7 @@ function renderCharBack(card) {
   return html;
 }
 
-/* ---------------------- quiz mode ---------------------- */
+/* ---------------------- pinyin normalisation ---------------------- */
 
 // Strip tone marks (and "ü"→"u") + lowercase + collapse spaces.
 function normPinyin(s) {
@@ -736,39 +674,6 @@ function normPinyin(s) {
     .replace(/ü|ü/g, 'u')
     .replace(/[^a-z0-9]+/g, ' ')                // punctuation/ellipsis → space
     .trim();
-}
-function resetQuiz(card) {
-  if (state.mode !== 'quiz') return;
-  const inp = $('#quizInput');
-  const fb  = $('#quizFeedback');
-  $('#quizPanel').hidden = false;
-  if (inp) { inp.value = ''; inp.disabled = false; inp.classList.remove('is-wrong','is-right'); }
-  if (fb) { fb.textContent = ''; fb.className = 'quiz-panel__feedback'; }
-  $('#quizPrompt').textContent = 'Type the pinyin (tones optional):';
-  setTimeout(() => inp && inp.focus(), 30);
-}
-function checkQuiz(e) {
-  if (e) e.preventDefault();
-  if (state.mode !== 'quiz') return;
-  const card = state.deck[state.index];
-  if (!card) return;
-  const inp = $('#quizInput');
-  const fb  = $('#quizFeedback');
-  const guess = normPinyin(inp.value);
-  const truth = normPinyin(card.pinyin);
-  if (!guess) { inp.focus(); return; }
-  if (guess === truth) {
-    inp.classList.add('is-right');
-    fb.className = 'quiz-panel__feedback is-right';
-    fb.textContent = `✓  ${card.pinyin} — ${card.english}`;
-    // Auto-reveal the answer on the card
-    if (!state.flipped) flipCard();
-  } else {
-    inp.classList.add('is-wrong');
-    fb.className = 'quiz-panel__feedback is-wrong';
-    fb.innerHTML = `✗  You typed <strong>${escapeHTML(inp.value)}</strong> — expected <strong>${escapeHTML(card.pinyin)}</strong>`;
-  }
-  inp.disabled = true;
 }
 
 /* ---------------------- Hanzi Writer ---------------------- */
@@ -963,10 +868,6 @@ function bindGlobalEvents() {
     renderCard();
   });
 
-  // Quiz: form submit checks the answer
-  const quizForm = $('#quizForm');
-  if (quizForm) quizForm.addEventListener('submit', checkQuiz);
-
   // Delegation: "Practice writing" button on character card back
   $('#cardEnglish').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-write-char]');
@@ -1018,16 +919,16 @@ function bindGlobalEvents() {
 }
 
 function onKey(e) {
-  // Global: "/" focuses search from anywhere
+  // Global: "/" opens the search FAB from anywhere
   if (e.key === '/' && !e.target.matches('input, textarea, [contenteditable]')) {
     e.preventDefault();
-    const inp = $('#searchInput');
-    if (inp) inp.focus();
+    openSearch();
     return;
   }
-  // Esc closes search results
+  // Esc closes the open search panel
   if (e.key === 'Escape') {
-    if (!$('#searchResults').hidden) { closeSearchResults(); return; }
+    const panel = $('#searchPanel');
+    if (panel && !panel.hidden) { closeSearch(); return; }
   }
   if (state.view !== 'study') return;
   if (e.target.matches('input, textarea, select, [contenteditable]')) return;
@@ -1083,16 +984,39 @@ function buildSearchIndex() {
   }
   state.searchIndex = idx;
 }
+function openSearch() {
+  const panel = $('#searchPanel');
+  const fab   = $('#searchFab');
+  const inp   = $('#searchInput');
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.add('is-open');
+  if (fab) fab.setAttribute('aria-expanded', 'true');
+  setTimeout(() => inp && inp.focus(), 30);
+}
+function closeSearch() {
+  const panel = $('#searchPanel');
+  const fab   = $('#searchFab');
+  if (!panel) return;
+  panel.classList.remove('is-open');
+  panel.hidden = true;
+  if (fab) fab.setAttribute('aria-expanded', 'false');
+  closeSearchResults();
+  const inp = $('#searchInput');
+  if (inp) inp.value = '';
+}
 function bindSearch() {
   const inp = $('#searchInput');
   const out = $('#searchResults');
-  const btn = $('#searchBtn');
+  const fab = $('#searchFab');
+  const close = $('#searchClose');
+  const panel = $('#searchPanel');
   if (!inp || !out) return;
-  if (btn) btn.addEventListener('click', () => { inp.focus(); });
+  if (fab)   fab.addEventListener('click', () => $('#searchPanel').classList.contains('is-open') ? closeSearch() : openSearch());
+  if (close) close.addEventListener('click', closeSearch);
   inp.addEventListener('input', () => doSearch(inp.value));
-  inp.addEventListener('focus', () => { if (inp.value.trim()) doSearch(inp.value); });
   inp.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { inp.value = ''; closeSearchResults(); inp.blur(); }
+    if (e.key === 'Escape') { closeSearch(); }
     if (e.key === 'Enter') {
       e.preventDefault();
       const first = out.querySelector('.searchresult');
@@ -1104,10 +1028,11 @@ function bindSearch() {
       if (first) first.focus();
     }
   });
-  // Click outside closes
+  // Click outside panel closes
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.topbar__search') && !e.target.closest('#searchBtn')) {
-      closeSearchResults();
+    if (!panel || panel.hidden) return;
+    if (!e.target.closest('#searchPanel') && !e.target.closest('#searchFab')) {
+      closeSearch();
     }
   });
 }
