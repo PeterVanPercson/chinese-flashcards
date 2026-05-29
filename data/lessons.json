@@ -3854,7 +3854,7 @@
           "english": "There's no room available."
         },
         {
-          "chinese": "我吃饱了。我吃饱了。",
+          "chinese": "我吃饱了。",
           "pinyin": "Wǒ chī bǎo le.",
           "english": "I am full."
         },
@@ -4059,7 +4059,7 @@
         "辣": [],
         "饱": [
           {
-            "sentence": "我吃饱了。我吃饱了。",
+            "sentence": "我吃饱了。",
             "pinyin": "Wǒ chī bǎo le.",
             "english": "I am full."
           }
@@ -6243,7 +6243,7 @@
         },
         {
           "chinese": "忙死了！/忙死我了！",
-          "pinyin": "Máng sǐ le!",
+          "pinyin": "Máng sǐ le! / Máng sǐ wǒ le!",
           "english": "I'm busy to death."
         },
         {
