@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio drills · Ten-Level Chinese</title>
+<meta name="description" content="Hands-free Pimsleur-style audio drills: English prompt → pause → Chinese answer, twice. For commutes, rides, walks.">
+<style>
+  :root { --bg:#FAF6EE; --ink:#1B1A18; --mute:#6E6A60; --accent:#B43A2E; --card:#FFFDF7; --rule:#E5DECF; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1A1916; --ink:#F0EBDD; --mute:#98927F; --accent:#E07466; --card:#22211D; --rule:#36332B; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--ink);
+         margin: 0; padding: 24px 16px 80px; line-height: 1.55; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--mute); font-size: .9rem; margin-bottom: 20px; }
+  .how { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; font-size: .9rem; margin-bottom: 20px; }
+  .how strong { color: var(--accent); }
+  .big { display: block; background: var(--accent); color: #fff; text-decoration: none; text-align: center;
+         padding: 16px; border-radius: 12px; font-weight: 600; margin-bottom: 8px; }
+  .meta { text-align: center; color: var(--mute); font-size: .8rem; margin-bottom: 24px; }
+  ol { list-style: none; padding: 0; margin: 0; }
+  li a { display: flex; justify-content: space-between; padding: 12px 14px; background: var(--card);
+         border: 1px solid var(--rule); border-radius: 10px; margin-bottom: 8px; color: inherit; text-decoration: none; }
+  li a span:last-child { color: var(--mute); font-size: .85rem; }
+  .back { color: var(--mute); font-size: .85rem; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+  .tip { color: var(--mute); font-size: .8rem; margin-top: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">← Back to flashcards</a>
+  <h1>🎧 Audio drills</h1>
+  <p class="sub">Hands-free vocabulary practice — for rides, commutes, walks.</p>
+
+  <div class="how">
+    How it works: you hear the <strong>English</strong> → a pause — <strong>say the Chinese out loud</strong> →
+    then the Chinese answer plays <strong>twice</strong>. All 569 words from all 20 lessons.
+  </div>
+
+  <a class="big" href="all-vocab-drill.mp3" download>⬇ Download the full drill (79 min · 28 MB)</a>
+  <p class="meta">Tap to stream, long-press → Download to save offline before you leave Wi-Fi.</p>
+
+  <ol id="lessons"></ol>
+  <script>
+    const ol = document.getElementById('lessons');
+    for (let i = 1; i <= 20; i++) {
+      const n = String(i).padStart(2, '0');
+      const li = document.createElement('li');
+      li.innerHTML = `<a href="lesson-${n}.mp3"><span>Lesson ${i}</span><span>~4 min</span></a>`;
+      ol.appendChild(li);
+    }
+  </script>
+
+  <p class="tip">⚠️ On a bike: one earbud only (or bone-conduction), volume low enough to hear traffic.</p>
+  <p class="tip">Built from the <a href="../" style="color:var(--accent)">Ten-Level Chinese flashcards</a> · by <a href="https://husanmavlonov.com" style="color:var(--accent)">Husan Mavlonov</a></p>
+</main>
+</body>
+</html>
