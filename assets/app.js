@@ -31,6 +31,7 @@ const state = {
   reviewed: new Set(),
   grades: {},            // cardKey -> grade (this session)
   autoplayTimer: null,   // pending autoplay timeout — cancelled on every re-render
+  gradeTimer: null,      // pending 220ms grade-advance — blocks re-entry, cancelled on nav
   audioManifest: null,   // { cardText: "file.mp3" }
   audioEl: null,         // shared HTMLAudioElement
   audioPlaying: false,   // true only while a REAL clip/TTS is playing
@@ -127,6 +128,7 @@ function routeFromHash() {
 
   $$('.view').forEach((v) => v.hidden = true);
   stopAudio();   // a navigation should always silence the previous card
+  if (state.gradeTimer) { clearTimeout(state.gradeTimer); state.gradeTimer = null; }
 
   if (parts.length === 0) {
     state.view = 'home';
@@ -407,6 +409,7 @@ function startStudy() {
 
   // "Again" requeues grow the deck; progress is measured against the
   // unique card count captured here.
+  if (state.gradeTimer) { clearTimeout(state.gradeTimer); state.gradeTimer = null; }
   state.totalUnique = state.deck.length;
   state.index = targetKey ? Math.max(0, state.deck.findIndex((c) => c.key === targetKey)) : 0;
   state.flipped = false;
@@ -491,16 +494,28 @@ function renderCard() {
     $('.action-row').style.display = 'none';
     $('.navrow').style.display = 'none';
     const ar = $('.audio-row'); if (ar) ar.style.display = 'none';
-    $('#cardChinese').textContent = '—';
-    $('#cardPinyin').textContent = '';
-    $('#cardEnglish').textContent = state.queueType === 'due'
+    // Reset flip state so the message lands on the VISIBLE front face
+    // (a stale .is-flipped from the previous deck would hide it).
+    const cardEl = $('#card');
+    cardEl.classList.remove('is-flipped', 'is-marked-again', 'is-marked-good');
+    cardEl.setAttribute('aria-pressed', 'false');
+    state.flipped = false;
+    setFaceVisibility();
+    const msg = state.queueType === 'due'
       ? 'Nothing due right now — grade some cards in a lesson first, then come back later.'
       : state.queueType === 'weak'
         ? 'No weak cards yet — they appear after you mark cards Again or Hard.'
         : 'This mode has no cards in this lesson yet.';
+    const zh = $('#cardChinese');
+    zh.textContent = '—';
+    zh.setAttribute('lang', 'en');
+    $('#cardHint').textContent = msg;          // front face → actually visible
+    $('#cardPinyin').textContent = '';
+    $('#cardEnglish').textContent = msg;       // back face copy for completeness
     $('#cardPos').textContent = '';
     $('#studyPos').textContent = 0;
     $('#progressBar').style.width = '0%';
+    announce(msg);
     return;
   }
   const ar = $('.audio-row'); if (ar) ar.style.display = '';
@@ -875,7 +890,7 @@ function closeWriter() {
 }
 
 function flipCard() {
-  if (!state.deck.length) return;
+  if (!state.deck.length || state.finished) return;
   state.flipped = !state.flipped;
   const c = $('#card');
   c.classList.toggle('is-flipped', state.flipped);
@@ -898,6 +913,10 @@ function flipCard() {
 
 function grade(g) {
   if (!state.deck.length || state.finished) return;
+  // Re-entry guard: ignore grades while the 220ms advance is pending
+  // (double-click / held key would otherwise grade the same card twice
+  // and splice duplicate "again" copies).
+  if (state.gradeTimer) return;
 
   // Can't grade a card you haven't seen the answer to — first press flips.
   if (!state.flipped) { flipCard(); return; }
@@ -924,7 +943,10 @@ function grade(g) {
   if (lessonId != null) {
     const lp = state.progress.lessons[lessonId] || {};
     const prev = srsRecord(card.key, lessonId);
-    const notYetDue = prev.g && prev.due && prev.due > Date.now();
+    // "Not yet due" guard stops same-day cramming from compounding the
+    // interval — but a lapsed ('again') record must always accept its
+    // recovery grade, even within the 60s relearn window.
+    const notYetDue = prev.g && prev.g !== 'again' && prev.due && prev.due > Date.now();
     if (g === 'again' || !notYetDue) {
       lp[card.key] = srsApply(prev, g);
     }
@@ -939,19 +961,28 @@ function grade(g) {
   if (g === 'again') cEl.classList.add('is-marked-again');
   if (g === 'good' || g === 'easy') cEl.classList.add('is-marked-good');
 
-  setTimeout(() => nextCard(/*afterGrade=*/true), 220);
+  state.gradeTimer = setTimeout(() => {
+    state.gradeTimer = null;
+    nextCard(/*afterGrade=*/true);
+  }, 220);
 }
 
 function nextCard(afterGrade) {
   if (!state.deck.length || state.finished) return;
+  // Completion check FIRST, at any position — grading the last
+  // unreviewed card mid-deck (after skips/loop-backs) must finish too.
+  if (afterGrade && state.reviewed.size >= state.totalUnique) {
+    showFinished();
+    return;
+  }
   if (state.index < state.deck.length - 1) {
     state.index++;
     renderCard();
     return;
   }
-  // At the end of the deck:
-  if (afterGrade && state.reviewed.size >= state.totalUnique) {
-    showFinished();
+  // At the end of the deck with manual Next:
+  if (state.reviewed.size >= state.totalUnique) {
+    showFinished();                  // everything reviewed — never dead-end
     return;
   }
   // Cards were skipped (or requeued) — loop back to the first unreviewed
@@ -1123,8 +1154,9 @@ function bindGlobalEvents() {
 }
 
 function onKey(e) {
-  // Global: "/" opens the search FAB from anywhere
-  if (e.key === '/' && !e.target.matches('input, textarea, [contenteditable]')) {
+  const dialogOpen = !!document.querySelector('dialog[open]');
+  // Global: "/" opens the search FAB from anywhere — except over a modal.
+  if (e.key === '/' && !dialogOpen && !e.target.matches('input, textarea, [contenteditable]')) {
     e.preventDefault();
     openSearch();
     return;
@@ -1136,15 +1168,14 @@ function onKey(e) {
   }
   if (state.view !== 'study') return;
   if (e.target.matches('input, textarea, select, [contenteditable]')) return;
-  // Never steal keys while a dialog is open, or from a focused
-  // interactive element — Enter/Space must activate the focused
-  // button/link natively (keyboard + screen-reader users).
-  if (document.querySelector('dialog[open]')) return;
-  if (e.target.closest && e.target.closest('button, a, [role="button"]')) {
-    // …except the card itself: Space/Enter on it natively clicks → flip. Fine.
-    return;
-  }
+  if (dialogOpen) return;              // dialogs own the keyboard
   const k = e.key.toLowerCase();
+  // On a focused button/link, ONLY Enter/Space belong to the element
+  // (native activation). All other shortcuts must keep working —
+  // otherwise one tap on any button kills the keyboard for the session.
+  const onInteractive = e.target.closest && e.target.closest('button, a, [role="button"]');
+  if (onInteractive && (k === ' ' || k === 'enter')) return;
+  if (e.repeat && ['1', '2', '3', '4'].includes(k)) return;   // held key ≠ many grades
   if (k === ' ' || k === 'enter') { e.preventDefault(); flipCard(); return; }
   if (k === 'arrowright' || k === 'arrowdown' || k === 'j') { e.preventDefault(); nextCard(false); return; }
   if (k === 'arrowleft'  || k === 'arrowup'   || k === 'k') { e.preventDefault(); prevCard(); return; }
@@ -1306,7 +1337,7 @@ function doSearch(q) {
   }
   out.hidden = false;
   out.innerHTML = hits.map((h) => `
-    <a class="searchresult searchresult--${h.kind}" href="${h.route}">
+    <a class="searchresult searchresult--${h.kind}" href="${h.route}" role="listitem">
       <span class="searchresult__zh" lang="zh-CN">${escapeHTML(h.zh)}</span>
       <span class="searchresult__py">${escapeHTML(h.py)}</span>
       <span class="searchresult__en">${escapeHTML(h.en)}</span>
