@@ -12,7 +12,7 @@
   --ink:           #1B1A18;
   --ink-soft:    #2B2A26;
   --ink-mute:   #6E6A60;
-  --ink-faint:  #A8A294;
+  --ink-faint:  #8A8478;   /* was #A8A294 — too faint for real information */
   --rule:           #E5DECF;
   --rule-soft:  #EFEADC;
 
@@ -79,7 +79,10 @@
   --d-fast: 180ms;
 }
 
-/* Dark "ink" theme */
+/* Dark "ink" theme.
+   NOTE: these two blocks (explicit data-theme + prefers-color-scheme)
+   must stay token-for-token identical — drift here already bit us once
+   (the shadow overrides were missing from the media-query copy). */
 :root[data-theme='dark'] {
   --bg:           #1A1916;
   --bg-elev:     #22211D;
@@ -87,7 +90,7 @@
   --ink:           #F0EBDD;
   --ink-soft:    #DCD6C5;
   --ink-mute:   #98927F;
-  --ink-faint:  #5E5A4D;
+  --ink-faint:  #7B7666;
   --rule:           #36332B;
   --rule-soft:  #2A2823;
   --accent:               #E07466;
@@ -97,6 +100,10 @@
   --jade-soft:           #2E3D31;
   --gold:                  #DCB75A;
   --gold-soft:           #3B3220;
+  --grade-again:        #E0796D;
+  --grade-hard:          #DCB75A;
+  --grade-good:          #82B08C;
+  --grade-easy:          #7FA9D9;
   --sh-2: 0 1px 0 rgb(0 0 0 / 0.4), 0 4px 14px rgb(0 0 0 / 0.5);
   --sh-3: 0 2px 0 rgb(0 0 0 / 0.4), 0 12px 30px rgb(0 0 0 / 0.55);
   --sh-4: 0 4px 0 rgb(0 0 0 / 0.4), 0 24px 60px rgb(0 0 0 / 0.6);
@@ -110,7 +117,7 @@
     --ink:           #F0EBDD;
     --ink-soft:    #DCD6C5;
     --ink-mute:   #98927F;
-    --ink-faint:  #5E5A4D;
+    --ink-faint:  #7B7666;
     --rule:           #36332B;
     --rule-soft:  #2A2823;
     --accent:               #E07466;
@@ -120,6 +127,13 @@
     --jade-soft:           #2E3D31;
     --gold:                  #DCB75A;
     --gold-soft:           #3B3220;
+    --grade-again:        #E0796D;
+    --grade-hard:          #DCB75A;
+    --grade-good:          #82B08C;
+    --grade-easy:          #7FA9D9;
+    --sh-2: 0 1px 0 rgb(0 0 0 / 0.4), 0 4px 14px rgb(0 0 0 / 0.5);
+    --sh-3: 0 2px 0 rgb(0 0 0 / 0.4), 0 12px 30px rgb(0 0 0 / 0.55);
+    --sh-4: 0 4px 0 rgb(0 0 0 / 0.4), 0 24px 60px rgb(0 0 0 / 0.6);
   }
 }
 
@@ -155,6 +169,17 @@ body {
   /* don't let a fast double-tap zoom the page */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* Screen-reader-only content (announcements, etc.) */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .skip-link {
@@ -741,7 +766,9 @@ body {
   mix-blend-mode: multiply;
   opacity: 0.6;
 }
-:root[data-theme='dark'] .card__face::before,
+/* Paper grain inverts for dark mode — split into two VALID rules
+   (a selector can't dangle into an at-rule). */
+:root[data-theme='dark'] .card__face::before { mix-blend-mode: screen; opacity: 0.35; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .card__face::before { mix-blend-mode: screen; opacity: 0.35; }
 }
@@ -808,6 +835,16 @@ body {
 .card__pos:empty { display: none; }
 
 /* Character-mode card: tighter back with structured compound list */
+/* Character backs can be content-heavy (gloss + compounds + writing
+   button) — let the face scroll instead of clipping at the card's
+   fixed aspect ratio. */
+.card--character .card__face--back {
+  overflow-y: auto;
+  justify-content: flex-start;
+  padding-top: var(--s-5);
+  -webkit-overflow-scrolling: touch;
+}
+
 .card--character .card__chinese {
   font-size: clamp(7rem, 18vw, 13rem);
   line-height: 1;
@@ -1088,6 +1125,11 @@ kbd {
 .dialog__reset { align-self: flex-start; color: var(--grade-again); border-color: color-mix(in oklab, var(--grade-again) 30%, var(--rule)); }
 .dialog__reset:hover { background: color-mix(in oklab, var(--grade-again) 8%, var(--bg-sunken)); }
 
+/* Backup row in settings (export / import progress) */
+.setting--backup { align-items: flex-start; }
+.setting__btns { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+.setting__btns .btn { padding: 7px 12px; font-size: var(--t-sm); }
+
 .setting {
   display: flex;
   align-items: center;
@@ -1314,7 +1356,12 @@ kbd {
   transition: background var(--d-fast) var(--ease);
 }
 .searchresult:last-child { border-bottom: 0; }
-.searchresult:hover, .searchresult:focus { background: var(--bg-sunken); outline: 0; }
+.searchresult:hover { background: var(--bg-sunken); }
+.searchresult:focus-visible {
+  background: var(--bg-sunken);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;            /* inside the row so it isn't clipped */
+}
 .searchresult__zh { grid-area: zh; font-family: var(--font-zh); font-weight: 600; font-size: var(--t-md); color: var(--ink); }
 .searchresult__py { grid-area: py; color: var(--ink-mute); font-style: italic; font-size: var(--t-sm); }
 .searchresult__en { grid-area: en; color: var(--ink-soft); font-size: var(--t-sm); overflow: hidden; text-overflow: ellipsis; }
@@ -1421,7 +1468,7 @@ body:has(#view-study:not([hidden])) .searchfab {
   font-family: var(--font-zh);
   margin-left: 6px;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 700;
 }
 .writer-body { gap: var(--s-3); align-items: center; text-align: center; }
 .writer-stage {

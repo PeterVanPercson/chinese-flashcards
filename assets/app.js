@@ -23,11 +23,14 @@ const state = {
   queueType: null,       // null | 'due' | 'weak' | 'random'
   deck: [],
   index: 0,
+  totalUnique: 0,        // unique cards at session start ("Again" requeues grow the deck)
+  pendingIndex: null,    // deep-link card index from the route (search)
   flipped: false,
   shuffled: false,
   finished: false,
   reviewed: new Set(),
   grades: {},            // cardKey -> grade (this session)
+  autoplayTimer: null,   // pending autoplay timeout — cancelled on every re-render
   audioManifest: null,   // { cardText: "file.mp3" }
   audioEl: null,         // shared HTMLAudioElement
   audioPlaying: false,   // true only while a REAL clip/TTS is playing
@@ -87,14 +90,22 @@ async function init() {
   bindSettingsDialog();
   routeFromHash();
   window.addEventListener('hashchange', routeFromHash);
-
-  bumpStreak();
+  // (streak bumps from grade() — studying counts, opening the page doesn't)
 }
 
+// Local-timezone calendar date (the audience is UTC+8 — UTC days would
+// roll a late-evening session into "tomorrow").
+function localDateStr(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// Called from grade() — a streak day is a day you actually studied,
+// not a day you merely opened the page.
 function bumpStreak() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   if (state.progress.lastStudyDate !== today) {
-    const y = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const y = localDateStr(new Date(Date.now() - 86_400_000));
     if (state.progress.lastStudyDate === y) state.progress.streak = (state.progress.streak || 0) + 1;
     else state.progress.streak = 1;
     state.progress.lastStudyDate = today;
@@ -106,7 +117,16 @@ function bumpStreak() {
 function routeFromHash() {
   const h = location.hash.replace(/^#/, '') || '/';
   const parts = h.split('/').filter(Boolean);
+
+  // The skip link sets #main — hand it focus, don't treat it as a route.
+  if (parts.length === 1 && parts[0] === 'main') {
+    const main = document.getElementById('main');
+    if (main) main.focus();
+    return;
+  }
+
   $$('.view').forEach((v) => v.hidden = true);
+  stopAudio();   // a navigation should always silence the previous card
 
   if (parts.length === 0) {
     state.view = 'home';
@@ -126,6 +146,8 @@ function routeFromHash() {
     state.mode = (m === 'listen' || m === 'quiz') ? 'vocab' : m;
     state.queueType = null;
     if (state.mode !== m) { location.hash = `#/study/${parts[1]}/${state.mode}`; return; }
+    // Optional 4th segment: a card index to deep-link to (from search).
+    state.pendingIndex = parts[3] !== undefined ? parseInt(parts[3], 10) : null;
     $('#view-study').hidden = false;
     startStudy();
   } else if (parts[0] === 'queue' && parts[1]) {
@@ -133,6 +155,7 @@ function routeFromHash() {
     state.lessonId = null;
     state.queueType = parts[1];
     state.mode = 'queue';
+    state.pendingIndex = null;
     $('#view-study').hidden = false;
     startStudy();
   } else {
@@ -169,8 +192,9 @@ function renderHome() {
   const grid = $('#lessonGrid');
   grid.innerHTML = state.data.lessons.map((L) => {
     const p = lessonProgress(L.id);
-    const totalCards = L.vocab.length + (L.sentences?.length || 0);
-    const pct = totalCards ? Math.round((p.known / totalCards) * 100) : 0;
+    // Denominator must match what can be graded: vocab + sentences + characters.
+    const totalCards = L.vocab.length + (L.sentences?.length || 0) + (L.characters?.length || 0);
+    const pct = totalCards ? Math.min(100, Math.round((p.known / totalCards) * 100)) : 0;
     return html`
       <li>
         <a href="#/lesson/${L.id}" class="lesson-card" aria-label="Lesson ${L.id}: ${escapeHTML(L.title_en)}">
@@ -367,13 +391,24 @@ function startStudy() {
     $('#studyLessonLabel').textContent = `Lesson ${L.id} · ${L.title_zh}`;
     $('#studyModeLabel').textContent = modeLabel(state.mode);
   }
+  // Deep link (from search): remember WHICH card before any shuffle,
+  // then locate it again afterwards by key.
+  let targetKey = null;
+  if (state.pendingIndex != null && state.deck[state.pendingIndex]) {
+    targetKey = state.deck[state.pendingIndex].key;
+  }
+  state.pendingIndex = null;
+
   if (state.shuffled) shuffleInPlace(state.deck);
 
   $('#studyBack').href = backHref;
   $('#finishedBack').href = backHref;
   $('#studyTotal').textContent = state.deck.length;
 
-  state.index = 0;
+  // "Again" requeues grow the deck; progress is measured against the
+  // unique card count captured here.
+  state.totalUnique = state.deck.length;
+  state.index = targetKey ? Math.max(0, state.deck.findIndex((c) => c.key === targetKey)) : 0;
   state.flipped = false;
   state.finished = false;
   state.reviewed.clear();
@@ -449,16 +484,26 @@ function renderCard() {
   $('#cardStage').style.display = '';
   $('.action-row').style.display = '';
   $('.navrow').style.display = '';
+  if (state.autoplayTimer) { clearTimeout(state.autoplayTimer); state.autoplayTimer = null; }
 
   if (state.deck.length === 0) {
+    // Hide controls that can't do anything on an empty deck.
+    $('.action-row').style.display = 'none';
+    $('.navrow').style.display = 'none';
+    const ar = $('.audio-row'); if (ar) ar.style.display = 'none';
     $('#cardChinese').textContent = '—';
     $('#cardPinyin').textContent = '';
-    $('#cardEnglish').textContent = 'This mode has no cards in this lesson yet.';
+    $('#cardEnglish').textContent = state.queueType === 'due'
+      ? 'Nothing due right now — grade some cards in a lesson first, then come back later.'
+      : state.queueType === 'weak'
+        ? 'No weak cards yet — they appear after you mark cards Again or Hard.'
+        : 'This mode has no cards in this lesson yet.';
     $('#cardPos').textContent = '';
     $('#studyPos').textContent = 0;
     $('#progressBar').style.width = '0%';
     return;
   }
+  const ar = $('.audio-row'); if (ar) ar.style.display = '';
 
   stopAudio();   // never let a previous clip bleed into the next card
 
@@ -478,31 +523,45 @@ function renderCard() {
   }
   cardEl.setAttribute('aria-pressed', 'false');
   state.flipped = false;
+  setFaceVisibility();
   $('#cardHint').textContent = 'Tap card or press Space to flip';
 
+  const zhEl = $('#cardChinese');
   if (card.type === 'character') {
-    $('#cardChinese').textContent = card.front_zh;
+    zhEl.textContent = card.front_zh;
+    zhEl.setAttribute('lang', 'zh-CN');
     $('#cardPinyin').textContent  = card.pinyin || '';
     $('#cardEnglish').innerHTML   = renderCharBack(card);
     $('#cardPos').textContent = '读写字';
   } else {
     const showZhFirst = state.settings.front === 'zh';
     if (showZhFirst) {
-      $('#cardChinese').textContent = card.front_zh;
+      zhEl.textContent = card.front_zh;
+      zhEl.setAttribute('lang', 'zh-CN');
       $('#cardPinyin').textContent  = card.pinyin || '';
       $('#cardEnglish').textContent = card.english || '';
+      $('#cardEnglish').removeAttribute('lang');
     } else {
       cardEl.classList.add('card--front-en');
-      $('#cardChinese').textContent = card.english || '—';
+      zhEl.textContent = card.english || '—';
+      zhEl.setAttribute('lang', 'en');
       $('#cardPinyin').textContent  = card.pinyin || '';
       $('#cardEnglish').textContent = card.front_zh;
+      $('#cardEnglish').setAttribute('lang', 'zh-CN');
     }
     $('#cardPos').textContent = card.pos || '';
   }
 
   $('#studyPos').textContent = state.index + 1;
-  const pct = ((state.reviewed.size) / state.deck.length) * 100;
+  $('#studyTotal').textContent = state.deck.length;
+  const pct = Math.min(100, (state.reviewed.size / (state.totalUnique || state.deck.length)) * 100);
   $('#progressBar').style.width = pct + '%';
+  const pb = $('.progress');
+  if (pb) pb.setAttribute('aria-valuenow', String(Math.round(pct)));
+
+  // Announce the new card to screen readers (the visual content swap is
+  // otherwise silent).
+  announce(`Card ${state.index + 1} of ${state.deck.length}`);
 
   // Audio button is always available — Chinese is always speakable.
   const ab = $('#audioBtn');
@@ -514,6 +573,22 @@ function renderCard() {
   // anywhere on the page at least once — which they always have by
   // the time they land on a card).
   autoplayIfReady();
+}
+
+// Keep the visually-hidden face out of the accessibility tree —
+// backface-visibility hides pixels, not content.
+function setFaceVisibility() {
+  const front = $('#cardFront');
+  const back  = $('#cardBack');
+  if (!front || !back) return;
+  front.setAttribute('aria-hidden', String(state.flipped));
+  back.setAttribute('aria-hidden', String(!state.flipped));
+}
+
+// Single polite live region for app announcements.
+function announce(msg) {
+  const el = $('#srAnnounce');
+  if (el) el.textContent = msg;
 }
 
 /* ---------------------- audio (hybrid) ---------------------- */
@@ -582,6 +657,7 @@ function flashAudioUnavailable() {
 }
 
 function stopAudio() {
+  if (state.autoplayTimer) { clearTimeout(state.autoplayTimer); state.autoplayTimer = null; }
   state.audioPlaying = false;
   if (state.audioEl) { state.audioEl.pause(); state.audioEl.currentTime = 0; }
   if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -650,8 +726,17 @@ function autoplayIfReady() {
   if (!state.settings.autoplay) return;
   if (!state.audioUnlocked) return;          // first gesture hasn't happened yet
   if (!state.deck.length) return;
-  // tiny delay so the flip-reset visual settles before sound starts
-  setTimeout(() => playCardAudio({ quiet: true }), 60);
+  // English-front mode: the Chinese is the ANSWER — autoplaying it on
+  // render would leak it. flipCard() speaks it on reveal instead.
+  // (Character cards always show hanzi on the front, so they still play.)
+  const card = state.deck[state.index];
+  if (state.settings.front === 'en' && card && card.type !== 'character') return;
+  // tiny delay so the flip-reset visual settles before sound starts —
+  // tracked so rapid navigation can cancel a stale play.
+  state.autoplayTimer = setTimeout(() => {
+    state.autoplayTimer = null;
+    playCardAudio({ quiet: true });
+  }, 60);
 }
 
 function renderCharBack(card) {
@@ -795,25 +880,60 @@ function flipCard() {
   const c = $('#card');
   c.classList.toggle('is-flipped', state.flipped);
   c.setAttribute('aria-pressed', String(state.flipped));
+  setFaceVisibility();
+
+  if (state.flipped) {
+    // Announce the revealed answer to screen readers.
+    const py = $('#cardPinyin').textContent;
+    const en = $('#cardEnglish').textContent;
+    announce(`${py}. ${en}`.slice(0, 200));
+    // In English-front mode the Chinese is the ANSWER — speak it only now.
+    const card = state.deck[state.index];
+    if (state.settings.autoplay && state.settings.front === 'en' &&
+        card && card.type !== 'character') {
+      playCardAudio({ quiet: true });
+    }
+  }
 }
 
 function grade(g) {
-  if (!state.deck.length) return;
+  if (!state.deck.length || state.finished) return;
+
+  // Can't grade a card you haven't seen the answer to — first press flips.
+  if (!state.flipped) { flipCard(); return; }
+
   const card = state.deck[state.index];
   state.grades[card.key] = g;
-  state.reviewed.add(card.key);
+
+  // "Again" = the card comes back a few positions later THIS session.
+  // It doesn't count as reviewed until it earns a passing grade.
+  if (g === 'again') {
+    const reinsertAt = Math.min(state.index + 1 + 4, state.deck.length);
+    state.deck.splice(reinsertAt, 0, { ...card });
+    $('#studyTotal').textContent = state.deck.length;
+  } else {
+    state.reviewed.add(card.key);
+  }
 
   // Persist with SRS schedule. Cards from cross-lesson queues carry their
   // own lessonId; in normal study we fall back to state.lessonId.
+  // Same-day guard: a non-"again" regrade of a card that's not due yet
+  // (re-studying a lesson you crammed an hour ago) must NOT compound the
+  // interval — keep the existing schedule and only let "again" reset it.
   const lessonId = card.lessonId || state.lessonId;
   if (lessonId != null) {
     const lp = state.progress.lessons[lessonId] || {};
     const prev = srsRecord(card.key, lessonId);
-    lp[card.key] = srsApply(prev, g);
+    const notYetDue = prev.g && prev.due && prev.due > Date.now();
+    if (g === 'again' || !notYetDue) {
+      lp[card.key] = srsApply(prev, g);
+    }
     state.progress.lessons[lessonId] = lp;
     saveProgress();
     state._flat = null;          // invalidate flat cache (counts may change)
   }
+
+  bumpStreak();                  // a streak day = a day with at least one grade
 
   const cEl = $('#card');
   if (g === 'again') cEl.classList.add('is-marked-again');
@@ -827,10 +947,19 @@ function nextCard(afterGrade) {
   if (state.index < state.deck.length - 1) {
     state.index++;
     renderCard();
-  } else if (afterGrade && state.reviewed.size >= state.deck.length) {
+    return;
+  }
+  // At the end of the deck:
+  if (afterGrade && state.reviewed.size >= state.totalUnique) {
     showFinished();
-  } else {
-    state.index = state.deck.length - 1;
+    return;
+  }
+  // Cards were skipped (or requeued) — loop back to the first unreviewed
+  // card instead of freezing on the last one.
+  const firstUnreviewed = state.deck.findIndex((c) => !state.reviewed.has(c.key));
+  if (firstUnreviewed !== -1 && firstUnreviewed !== state.index) {
+    state.index = firstUnreviewed;
+    renderCard();
   }
 }
 function prevCard() {
@@ -843,16 +972,31 @@ function prevCard() {
 
 function showFinished() {
   state.finished = true;
-  const total = state.deck.length;
-  const known = Object.values(state.grades).filter((g) => g === 'good' || g === 'easy').length;
-  const hard  = Object.values(state.grades).filter((g) => g === 'hard').length;
-  const again = Object.values(state.grades).filter((g) => g === 'again').length;
+  stopAudio();
+  const total = state.totalUnique;
+  const counts = { good: 0, easy: 0, hard: 0, again: 0 };
+  Object.values(state.grades).forEach((g) => { if (g in counts) counts[g]++; });
   $('#cardStage').style.display = 'none';
   $('.action-row').style.display = 'none';
   $('.navrow').style.display = 'none';
   $('#finished').hidden = false;
   $('#finishedStats').textContent =
-    `${known} good · ${hard} hard · ${again} again — out of ${total} cards.`;
+    `${counts.good + counts.easy} good · ${counts.hard} hard · ${counts.again} lapsed — ${total} cards.`;
+
+  // Offer a focused redo of the cards that gave trouble this session.
+  const missedKeys = Object.entries(state.grades)
+    .filter(([, g]) => g === 'again' || g === 'hard')
+    .map(([k]) => k);
+  const redoBtn = $('#finishedRedo');
+  if (redoBtn) {
+    redoBtn.hidden = missedKeys.length === 0;
+    redoBtn.textContent = `Redo ${missedKeys.length} tricky card${missedKeys.length === 1 ? '' : 's'}`;
+    redoBtn.dataset.keys = JSON.stringify(missedKeys);
+  }
+
+  // Move focus (and the announcement) to the completion heading.
+  const ft = $('#finishedTitle');
+  if (ft) { ft.setAttribute('tabindex', '-1'); ft.focus(); }
 }
 
 function shuffleInPlace(arr) {
@@ -884,26 +1028,17 @@ function bindGlobalEvents() {
   $('#btnPrev').addEventListener('click', prevCard);
   $('#btnNext').addEventListener('click', () => nextCard(false));
 
+  // Shuffle / restart rebuild the deck via startStudy() — that both
+  // restores original order when shuffle turns OFF and purges any
+  // requeued "Again" duplicates from the previous run.
   $('#btnShuffle').addEventListener('click', (e) => {
     state.shuffled = !state.shuffled;
     e.currentTarget.setAttribute('aria-pressed', String(state.shuffled));
-    if (state.view === 'study') {
-      // reshuffle current deck and restart
-      shuffleInPlace(state.deck);
-      state.index = 0;
-      state.finished = false;
-      state.reviewed.clear();
-      state.grades = {};
-      renderCard();
-    }
+    if (state.view === 'study') startStudy();
   });
 
   $('#btnReset').addEventListener('click', () => {
-    state.index = 0;
-    state.finished = false;
-    state.reviewed.clear();
-    state.grades = {};
-    renderCard();
+    if (state.view === 'study') startStudy();
   });
 
   $('#btnAgain').addEventListener('click', () => grade('again'));
@@ -912,11 +1047,28 @@ function bindGlobalEvents() {
   $('#btnEasy').addEventListener('click', () => grade('easy'));
 
   $('#finishedRestart').addEventListener('click', () => {
+    if (state.view === 'study') startStudy();
+  });
+
+  // Focused redo of this session's Again/Hard cards.
+  const redoBtn = $('#finishedRedo');
+  if (redoBtn) redoBtn.addEventListener('click', () => {
+    let keys = [];
+    try { keys = JSON.parse(redoBtn.dataset.keys || '[]'); } catch (e) {}
+    const cards = [];
+    const seen = new Set();
+    for (const c of state.deck) {
+      if (keys.includes(c.key) && !seen.has(c.key)) { seen.add(c.key); cards.push({ ...c }); }
+    }
+    if (!cards.length) { startStudy(); return; }
+    state.deck = cards;
+    state.totalUnique = cards.length;
     state.index = 0;
+    state.flipped = false;
     state.finished = false;
     state.reviewed.clear();
     state.grades = {};
-    if (state.shuffled) shuffleInPlace(state.deck);
+    $('#studyTotal').textContent = cards.length;
     renderCard();
   });
 
@@ -984,10 +1136,19 @@ function onKey(e) {
   }
   if (state.view !== 'study') return;
   if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+  // Never steal keys while a dialog is open, or from a focused
+  // interactive element — Enter/Space must activate the focused
+  // button/link natively (keyboard + screen-reader users).
+  if (document.querySelector('dialog[open]')) return;
+  if (e.target.closest && e.target.closest('button, a, [role="button"]')) {
+    // …except the card itself: Space/Enter on it natively clicks → flip. Fine.
+    return;
+  }
   const k = e.key.toLowerCase();
   if (k === ' ' || k === 'enter') { e.preventDefault(); flipCard(); return; }
   if (k === 'arrowright' || k === 'arrowdown' || k === 'j') { e.preventDefault(); nextCard(false); return; }
   if (k === 'arrowleft'  || k === 'arrowup'   || k === 'k') { e.preventDefault(); prevCard(); return; }
+  if (state.finished) return;          // no silent re-grading on the finish screen
   if (k === '1') { grade('again'); return; }
   if (k === '2') { grade('hard'); return; }
   if (k === '3') { grade('good'); return; }
@@ -999,7 +1160,13 @@ function onKey(e) {
 
 /* ---------------------- search ---------------------- */
 function buildSearchIndex() {
-  // Lightweight: each entry stores searchable lowercase text + a route.
+  // Each entry stores searchable text + a DEEP route (deck + card index),
+  // and the haystack carries both spaced and space-collapsed toneless
+  // pinyin so 'haojiu' matches data stored as 'hǎo jiǔ'.
+  const hay = (zh, py, en) => {
+    const np = normPinyin(py);
+    return (zh + ' ' + py + ' ' + en).toLowerCase() + ' ' + np + ' ' + np.replace(/ /g, '');
+  };
   const idx = [];
   for (const L of state.data.lessons) {
     for (let i = 0; i < L.vocab.length; i++) {
@@ -1007,9 +1174,9 @@ function buildSearchIndex() {
       idx.push({
         zh: v.chinese, py: v.pinyin, en: v.english,
         sub: `Lesson ${L.id} · ${L.title_zh}`,
-        route: `#/study/${L.id}/vocab`,
+        route: `#/study/${L.id}/vocab/${i}`,
         kind: 'word',
-        haystack: (v.chinese + ' ' + v.pinyin + ' ' + v.english).toLowerCase() + ' ' + normPinyin(v.pinyin),
+        haystack: hay(v.chinese, v.pinyin, v.english),
       });
     }
     for (let i = 0; i < (L.sentences || []).length; i++) {
@@ -1017,20 +1184,22 @@ function buildSearchIndex() {
       idx.push({
         zh: s.chinese, py: s.pinyin, en: s.english,
         sub: `Lesson ${L.id} · ${L.title_zh}`,
-        route: `#/study/${L.id}/sentences`,
+        route: `#/study/${L.id}/sentences/${i}`,
         kind: 'sentence',
-        haystack: (s.chinese + ' ' + s.pinyin + ' ' + s.english).toLowerCase() + ' ' + normPinyin(s.pinyin),
+        haystack: hay(s.chinese, s.pinyin, s.english),
       });
     }
-    for (const c of (L.characters || [])) {
+    const chars = L.characters || [];
+    for (let i = 0; i < chars.length; i++) {
+      const c = chars[i];
       const py = (L.char_pinyin || {})[c] || '';
       const en = (L.char_gloss || {})[c] || '';
       idx.push({
         zh: c, py, en,
         sub: `Lesson ${L.id} · 读写字`,
-        route: `#/study/${L.id}/characters`,
+        route: `#/study/${L.id}/characters/${i}`,
         kind: 'hanzi',
-        haystack: (c + ' ' + py + ' ' + en).toLowerCase() + ' ' + normPinyin(py),
+        haystack: hay(c, py, en),
       });
     }
   }
@@ -1050,9 +1219,14 @@ function closeSearch() {
   const panel = $('#searchPanel');
   const fab   = $('#searchFab');
   if (!panel) return;
+  // Don't strand keyboard/SR focus inside a hidden subtree.
+  const hadFocus = panel.contains(document.activeElement);
   panel.classList.remove('is-open');
   panel.hidden = true;
-  if (fab) fab.setAttribute('aria-expanded', 'false');
+  if (fab) {
+    fab.setAttribute('aria-expanded', 'false');
+    if (hadFocus) fab.focus();
+  }
   closeSearchResults();
   const inp = $('#searchInput');
   if (inp) inp.value = '';
@@ -1078,6 +1252,26 @@ function bindSearch() {
       e.preventDefault();
       const first = out.querySelector('.searchresult');
       if (first) first.focus();
+    }
+  });
+  // Arrow keys walk the result list; ArrowUp from the first returns to input.
+  out.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = Array.from(out.querySelectorAll('.searchresult'));
+    const i = items.indexOf(document.activeElement);
+    if (i === -1) return;
+    e.preventDefault();
+    if (e.key === 'ArrowDown' && i < items.length - 1) items[i + 1].focus();
+    else if (e.key === 'ArrowUp') (i === 0 ? inp : items[i - 1]).focus();
+  });
+  // A result whose href EQUALS the current hash fires no hashchange —
+  // re-route manually so the click is never a silent no-op.
+  out.addEventListener('click', (e) => {
+    const a = e.target.closest('a.searchresult');
+    if (!a) return;
+    if (a.getAttribute('href') === location.hash) {
+      e.preventDefault();
+      routeFromHash();
     }
   });
   // Click outside panel closes
@@ -1112,8 +1306,8 @@ function doSearch(q) {
   }
   out.hidden = false;
   out.innerHTML = hits.map((h) => `
-    <a class="searchresult searchresult--${h.kind}" href="${h.route}" tabindex="0">
-      <span class="searchresult__zh">${escapeHTML(h.zh)}</span>
+    <a class="searchresult searchresult--${h.kind}" href="${h.route}">
+      <span class="searchresult__zh" lang="zh-CN">${escapeHTML(h.zh)}</span>
       <span class="searchresult__py">${escapeHTML(h.py)}</span>
       <span class="searchresult__en">${escapeHTML(h.en)}</span>
       <span class="searchresult__sub">${escapeHTML(h.sub)}</span>
@@ -1139,6 +1333,53 @@ function bindSettingsDialog() {
   $('#setSize').addEventListener('change', (e) => { state.settings.size = e.target.value; saveSettings(); if (state.view === 'study') renderCard(); });
   $('#setAutoplay').addEventListener('change', (e) => { state.settings.autoplay = e.target.checked; saveSettings(); });
   $('#setReduceMotion').addEventListener('change', (e) => { state.settings.reduceMotion = e.target.checked; saveSettings(); applySettings(); });
+
+  // Backup / restore — localStorage is not forever (iOS evicts it after
+  // ~7 days of Safari non-use), so give users a one-tap escape hatch.
+  const expBtn = $('#setExport');
+  if (expBtn) expBtn.addEventListener('click', () => {
+    const payload = {
+      exported: new Date().toISOString(),
+      progress: state.progress,
+      settings: state.settings,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tlc-progress-${localDateStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+  const impInput = $('#setImportFile');
+  const impBtn = $('#setImport');
+  if (impBtn && impInput) {
+    impBtn.addEventListener('click', () => impInput.click());
+    impInput.addEventListener('change', () => {
+      const f = impInput.files && impInput.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const p = JSON.parse(r.result);
+          if (!p || typeof p !== 'object' || !p.progress || !p.progress.lessons) {
+            alert('That file doesn\'t look like a progress backup.');
+            return;
+          }
+          if (!confirm('Replace your current progress with this backup?')) return;
+          state.progress = p.progress;
+          saveProgress();
+          if (p.settings) { state.settings = Object.assign(defaultSettings(), p.settings); saveSettings(); applySettings(); }
+          state._flat = null;
+          alert('Progress restored.');
+          if (state.view === 'home') renderHome();
+        } catch (e) { alert('Could not read that file.'); }
+        impInput.value = '';
+      };
+      r.readAsText(f);
+    });
+  }
 
   $('#setResetProgress').addEventListener('click', () => {
     if (!confirm('Reset all progress and grades? This cannot be undone.')) return;

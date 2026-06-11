@@ -8,7 +8,7 @@
 <meta name="description" content="A clean, Anki-style flashcard app for the Level 2 Integrated Chinese textbook. 20 lessons, ~569 words, ~362 sentences, ~400 characters. Local-only.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css">
 <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75' font-family='serif'>汉</text></svg>">
 
@@ -36,7 +36,7 @@
 
 <header class="topbar" role="banner">
   <a href="#/" class="brand" aria-label="Go to home">
-    <span class="brand__mark" aria-hidden="true">拾</span>
+    <span class="brand__mark" aria-hidden="true" lang="zh-CN">拾</span>
     <span class="brand__text">
       <span class="brand__title">Ten-Level Chinese</span>
       <span class="brand__sub">Level 2 · Integrated Textbook</span>
@@ -67,16 +67,17 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </label>
-    <div id="searchResults" class="searchresults" role="listbox" aria-label="Search results" hidden></div>
+    <div id="searchResults" class="searchresults" role="list" aria-label="Search results" hidden></div>
     <p class="searchpanel__hint">Type pinyin (with or without tones), Chinese, or English. Press <kbd>/</kbd> to open, <kbd>Esc</kbd> to close.</p>
   </div>
 </aside>
 
-<main id="main" class="app">
+<main id="main" class="app" tabindex="-1">
+<div id="srAnnounce" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
   <!-- Home view -->
   <section id="view-home" class="view view--home" hidden>
     <div class="hero">
-      <div class="hero__eyebrow">拾级汉语 · 综合课本 · 第2级</div>
+      <div class="hero__eyebrow" lang="zh-CN">拾级汉语 · 综合课本 · 第2级</div>
       <h1 class="hero__title">Flashcards for every lesson.</h1>
       <p class="hero__lede" id="heroLede">Vocabulary, sentences, and characters from the Level 2 Integrated Textbook, organised by lesson. Front shows Chinese — flip for pinyin and English.</p>
       <div class="hero__stats" aria-label="Progress summary">
@@ -130,7 +131,7 @@
     </a>
     <header class="lesson-header">
       <div class="lesson-header__num" id="lessonNum">第 1 课</div>
-      <h1 class="lesson-header__title" id="lessonTitle">…</h1>
+      <h1 class="lesson-header__title" id="lessonTitle" lang="zh-CN">…</h1>
       <p class="lesson-header__pinyin" id="lessonPinyin">…</p>
       <p class="lesson-header__english" id="lessonEnglish">…</p>
     </header>
@@ -190,7 +191,7 @@
     </div>
 
     <div class="card-stage" id="cardStage">
-      <button class="card" id="card" type="button" aria-label="Flip card" aria-pressed="false">
+      <button class="card" id="card" type="button" aria-pressed="false">
         <div class="card__inner">
           <div class="card__face card__face--front" id="cardFront">
             <div class="card__chinese" id="cardChinese">汉</div>
@@ -266,9 +267,10 @@
 
     <div class="finished" id="finished" hidden>
       <div class="finished__icon" aria-hidden="true">🌿</div>
-      <h2 class="finished__title">Deck complete</h2>
+      <h2 class="finished__title" id="finishedTitle">Deck complete</h2>
       <p class="finished__sub" id="finishedStats">…</p>
       <div class="finished__actions">
+        <button class="btn btn--primary" id="finishedRedo" type="button" hidden>Redo tricky cards</button>
         <button class="btn btn--ghost" id="finishedRestart" type="button">Study again</button>
         <a class="btn btn--primary" id="finishedBack" href="#">Back to lesson</a>
       </div>
@@ -317,6 +319,14 @@
         <span class="setting__label">Reduce motion</span>
         <input type="checkbox" id="setReduceMotion" class="setting__checkbox">
       </label>
+      <div class="setting setting--backup">
+        <span class="setting__label">Backup</span>
+        <span class="setting__btns">
+          <button class="btn btn--ghost" type="button" id="setExport">Export progress</button>
+          <button class="btn btn--ghost" type="button" id="setImport">Import</button>
+          <input type="file" id="setImportFile" accept="application/json,.json" hidden>
+        </span>
+      </div>
       <button class="btn btn--ghost dialog__reset" type="button" id="setResetProgress">Reset all progress</button>
     </div>
     <footer class="dialog__foot">
@@ -337,10 +347,10 @@
       </button>
     </header>
     <div class="dialog__body writer-body">
-      <div class="writer-stage" id="writerStage" aria-live="polite"></div>
+      <div class="writer-stage" id="writerStage" aria-hidden="true"></div>
       <div class="writer-info">
         <div id="writerSubtitle" class="writer-info__sub">jiǔ · long ago; a long time</div>
-        <div id="writerStatus" class="writer-info__status">Tap <em>Show strokes</em> to watch, or <em>Trace</em> to practice.</div>
+        <div id="writerStatus" class="writer-info__status" aria-live="polite" aria-atomic="true">Tap <em>Show strokes</em> to watch, or <em>Trace</em> to practice.</div>
       </div>
       <div class="writer-actions">
         <button type="button" class="btn btn--ghost" id="writerAnimate">Show strokes</button>
@@ -356,7 +366,7 @@
 
 <footer class="footer">
   <span>Made for studying offline · data lives in your browser only</span>
-  <span class="footer__source">Source: 拾级汉语 综合课本 第2级 · BLCU Press</span>
+  <span class="footer__source" lang="zh-CN">Source: 拾级汉语 综合课本 第2级 · BLCU Press</span>
   <span class="footer__credit">
     Built by
     <a href="https://husanmavlonov.com" target="_blank" rel="noopener noreferrer">Husan Mavlonov</a>
