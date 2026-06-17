@@ -6,7 +6,7 @@
    - ASSETS (stable): audio clips, icons, fonts, CDN libs — cache-first
      and effectively immutable; they survive shell version bumps so a
      deploy never re-downloads 10MB of audio. */
-const SHELL_CACHE  = 'tlc-shell-v3';
+const SHELL_CACHE  = 'tlc-shell-v4';
 const ASSET_CACHE  = 'tlc-assets-v1';
 
 const SHELL = [

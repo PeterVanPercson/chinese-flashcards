@@ -195,6 +195,7 @@
         <div class="card__inner">
           <div class="card__face card__face--front" id="cardFront">
             <div class="card__chinese" id="cardChinese">汉</div>
+            <div class="card__front-py" id="cardFrontPy" hidden></div>
             <div class="card__hint" id="cardHint">Tap card or press Space to flip</div>
           </div>
           <div class="card__face card__face--back" id="cardBack">
@@ -300,6 +301,7 @@
         <span class="setting__label">Card front</span>
         <select id="setFront" class="setting__input">
           <option value="zh">Chinese → pinyin + English</option>
+          <option value="zhpy">Chinese + pinyin → English (beginner)</option>
           <option value="en">English → Chinese + pinyin</option>
         </select>
       </label>
@@ -349,7 +351,7 @@
     <div class="dialog__body writer-body">
       <div class="writer-stage" id="writerStage" aria-hidden="true"></div>
       <div class="writer-info">
-        <div id="writerSubtitle" class="writer-info__sub">jiǔ · long ago; a long time</div>
+        <div id="writerSubtitle" class="writer-info__sub"></div>
         <div id="writerStatus" class="writer-info__status" aria-live="polite" aria-atomic="true">Tap <em>Show strokes</em> to watch, or <em>Trace</em> to practice.</div>
       </div>
       <div class="writer-actions">

@@ -77,7 +77,7 @@ async function init() {
     state.data = await r.json();
   } catch (e) {
     console.error(e);
-    document.body.innerHTML = '<main style="padding:48px;text-align:center;font-family:system-ui">Could not load <code>data/lessons.json</code>.<br>Run a local server: <code>cd chinese-flashcards &amp;&amp; python3 -m http.server 8000</code></main>';
+    document.body.innerHTML = '<main style="padding:48px;text-align:center;font-family:system-ui">Could not load <code>data/lessons.json</code>.<br>Serve this folder over http (e.g. <code>python3 -m http.server 8000</code>) — opening index.html via file:// blocks fetch().</main>';
     return;
   }
 
@@ -542,6 +542,14 @@ function renderCard() {
   $('#cardHint').textContent = 'Tap card or press Space to flip';
 
   const zhEl = $('#cardChinese');
+  const frontPy = $('#cardFrontPy');
+  // "Chinese + pinyin" beginner mode: pinyin scaffold on the FRONT face.
+  const showFrontPinyin = state.settings.front === 'zhpy';
+  if (frontPy) {
+    if (showFrontPinyin && card.pinyin) { frontPy.textContent = card.pinyin; frontPy.hidden = false; }
+    else { frontPy.textContent = ''; frontPy.hidden = true; }
+  }
+
   if (card.type === 'character') {
     zhEl.textContent = card.front_zh;
     zhEl.setAttribute('lang', 'zh-CN');
@@ -549,12 +557,19 @@ function renderCard() {
     $('#cardEnglish').innerHTML   = renderCharBack(card);
     $('#cardPos').textContent = '读写字';
   } else {
-    const showZhFirst = state.settings.front === 'zh';
-    if (showZhFirst) {
+    // 'zh' and 'zhpy' both show Chinese first; only 'en' inverts.
+    const englishFront = state.settings.front === 'en';
+    if (!englishFront) {
       zhEl.textContent = card.front_zh;
       zhEl.setAttribute('lang', 'zh-CN');
       $('#cardPinyin').textContent  = card.pinyin || '';
-      $('#cardEnglish').textContent = card.english || '';
+      // Single-hanzi vocab gets a stroke-order practice button too.
+      if (card.type === 'vocab' && SINGLE_HANZI.test(card.front_zh)) {
+        $('#cardEnglish').innerHTML = `<div class="vocab-back__en">${escapeHTML(card.english || '')}</div>` +
+          writeBtnHTML(card.front_zh, card.pinyin, card.english);
+      } else {
+        $('#cardEnglish').textContent = card.english || '';
+      }
       $('#cardEnglish').removeAttribute('lang');
     } else {
       cardEl.classList.add('card--front-en');
@@ -795,16 +810,25 @@ function renderCharBack(card) {
     </div>`;
   }
   // Practice-writing button for single characters (Hanzi Writer)
-  html += `<div class="char-back__write">
+  html += writeBtnHTML(card.front_zh, card.pinyin, card.english);
+  return html;
+}
+
+// Reusable "Practice writing" button — works for character cards AND for
+// single-hanzi vocab cards (so 你/我/他/她 etc. are traceable too).
+function writeBtnHTML(ch, py, en) {
+  return `<div class="char-back__write">
     <button type="button" class="btn btn--ghost char-back__writebtn"
-            data-write-char="${escapeHTML(card.front_zh)}"
-            data-write-py="${escapeHTML(card.pinyin || '')}"
-            data-write-en="${escapeHTML(card.english || '')}">
+            data-write-char="${escapeHTML(ch)}"
+            data-write-py="${escapeHTML(py || '')}"
+            data-write-en="${escapeHTML(en || '')}">
       ✍︎ Practice writing
     </button>
   </div>`;
-  return html;
 }
+
+// A single CJK character (used to decide whether a vocab card is traceable).
+const SINGLE_HANZI = /^[一-鿿]$/;
 
 /* ---------------------- pinyin normalisation ---------------------- */
 
