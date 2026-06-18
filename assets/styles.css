@@ -1622,3 +1622,54 @@ body:has(#view-study:not([hidden])) .searchfab {
 }
 :root[data-motion='reduce'] .card__inner { transition: none; }
 :root[data-motion='reduce'] * { animation-duration: 0.001ms !important; transition-duration: 60ms !important; }
+
+/* ---------------------------------------------------------------------------
+   Test / dictation mode
+   --------------------------------------------------------------------------- */
+.test-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  max-width: 520px;
+  margin: var(--s-3) auto var(--s-1);
+}
+.test-input-row { display: flex; gap: var(--s-2); width: 100%; }
+#testInput {
+  flex: 1;
+  min-width: 0;
+  font: 500 1.15rem/1.3 var(--font-mono, ui-monospace, monospace);
+  letter-spacing: .01em;
+  padding: 13px 15px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--rule);
+  background: var(--bg-elev);
+  color: var(--ink);
+}
+#testInput::placeholder { color: var(--ink-faint); font-weight: 400; }
+#testInput:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+#testInput:disabled { opacity: .65; }
+#testCheck { flex-shrink: 0; padding-inline: 22px; }
+.test-write-btn { width: 100%; padding: 14px; font-size: 1rem; }
+.test-result {
+  width: 100%;
+  text-align: center;
+  font-size: 1.05rem;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--rule);
+  background: var(--bg-elev);
+}
+.test-result__mark { font-weight: 800; margin-right: 6px; }
+.test-result.is-correct {
+  color: var(--good);
+  border-color: color-mix(in oklab, var(--good) 45%, var(--rule));
+  background: color-mix(in oklab, var(--good) 12%, transparent);
+}
+.test-result.is-wrong {
+  color: var(--again);
+  border-color: color-mix(in oklab, var(--again) 45%, var(--rule));
+  background: color-mix(in oklab, var(--again) 12%, transparent);
+}
+.mode-card--test .mode-card__icon { color: var(--accent); background: var(--accent-wash); }

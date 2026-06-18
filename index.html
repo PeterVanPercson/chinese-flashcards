@@ -161,6 +161,14 @@
         </span>
         <span class="mode-card__arrow" aria-hidden="true">→</span>
       </a>
+      <a href="#" class="mode-card mode-card--test" data-mode="test" role="listitem">
+        <span class="mode-card__icon" aria-hidden="true">测</span>
+        <span class="mode-card__body">
+          <span class="mode-card__title">Test yourself · 测验</span>
+          <span class="mode-card__sub">active recall — type the pinyin, write the hanzi from memory</span>
+        </span>
+        <span class="mode-card__arrow" aria-hidden="true">→</span>
+      </a>
     </div>
 
     <details class="lesson-list-block">
@@ -207,6 +215,17 @@
       </button>
     </div>
 
+    <!-- Test mode: type the pinyin (vocab) or write the hanzi (characters) -->
+    <div class="test-panel" id="testPanel" hidden>
+      <div class="test-input-row" id="testInputRow">
+        <input id="testInput" type="text" inputmode="latin" autocomplete="off"
+               autocapitalize="off" spellcheck="false" lang="en"
+               placeholder="type the pinyin — tones optional" aria-label="Type the pinyin">
+        <button class="btn btn--primary" id="testCheck" type="button">Check</button>
+      </div>
+      <button class="btn btn--primary test-write-btn" id="testWriteBtn" type="button" hidden>✍︎ Write it from memory</button>
+      <div class="test-result" id="testResult" role="status" aria-live="polite" hidden></div>
+    </div>
 
     <div class="audio-row">
       <button class="playbtn" id="audioBtn" type="button" aria-label="Play pronunciation">

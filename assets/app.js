@@ -424,6 +424,7 @@ function modeLabel(m) {
     vocab: 'Vocabulary',
     sentences: 'Sentences',
     characters: 'Characters · 读写字',
+    test: 'Test · 测验',
   })[m] || m;
 }
 function queueLabel(t) {
@@ -478,6 +479,11 @@ function buildDeck(L, mode) {
         examples: exs,
       };
     });
+  }
+  // Test mode: active recall. Vocab → read the hanzi, type the pinyin.
+  // Characters → see pinyin+meaning, write the hanzi from memory.
+  if (mode === 'test') {
+    return [...buildDeck(L, 'vocab'), ...buildDeck(L, 'characters')];
   }
   return [];
 }
@@ -550,7 +556,11 @@ function renderCard() {
     else { frontPy.textContent = ''; frontPy.hidden = true; }
   }
 
-  if (card.type === 'character') {
+  const isTest = state.mode === 'test';
+  cardEl.classList.toggle('card--test', isTest);
+  if (isTest) {
+    renderTestPrompt(card, zhEl);
+  } else if (card.type === 'character') {
     zhEl.textContent = card.front_zh;
     zhEl.setAttribute('lang', 'zh-CN');
     $('#cardPinyin').textContent  = card.pinyin || '';
@@ -598,11 +608,125 @@ function renderCard() {
   if (ab) ab.disabled = false;
   setAudioBtnState(false);
 
+  // Test mode: gate the answer behind active production; no autoplay (it
+  // would leak the answer). For vocab the audio button stays usable as a
+  // listening-dictation aid, by choice.
+  if (isTest) {
+    setupTestCard(card);
+    return;
+  }
+  hideTestPanel();
+
   // Auto-play this card's pronunciation (silent unlock pattern means
   // this will succeed on every browser as long as the user has tapped
   // anywhere on the page at least once — which they always have by
   // the time they land on a card).
   autoplayIfReady();
+}
+
+/* ---------------------- test / dictation mode ---------------------- */
+
+// The card never flips in test mode, so the prompt lives entirely on the
+// FRONT face (#cardChinese big + #cardFrontPy + #cardHint). Vocab → show the
+// hanzi (read it, type the pinyin). Character → show pinyin + meaning, the
+// hanzi hidden behind a "？" (write it from memory).
+function renderTestPrompt(card, zhEl) {
+  const fp = $('#cardFrontPy');
+  // Back face is unused in test mode — clear it.
+  $('#cardPinyin').textContent = '';
+  $('#cardEnglish').textContent = '';
+  $('#cardEnglish').removeAttribute('lang');
+  $('#cardPos').textContent = '';
+  if (card.type === 'character') {
+    zhEl.textContent = '？';
+    zhEl.setAttribute('lang', 'en');
+    if (fp) { fp.textContent = card.pinyin || ''; fp.hidden = !card.pinyin; }
+    $('#cardHint').textContent = (card.english ? card.english + ' — ' : '') + 'write this character from memory';
+  } else {
+    zhEl.textContent = card.front_zh;
+    zhEl.setAttribute('lang', 'zh-CN');
+    if (fp) { fp.textContent = ''; fp.hidden = true; }
+    $('#cardHint').textContent = 'Type the pinyin, then Check';
+  }
+}
+
+function hideTestPanel() {
+  const p = $('#testPanel');
+  if (p) p.hidden = true;
+}
+
+// Prepare the prompt-and-answer UI for the current test card.
+function setupTestCard(card) {
+  state.testAnswered = false;
+  const panel = $('#testPanel'); if (!panel) return;
+  panel.hidden = false;
+  const inputRow = $('#testInputRow');
+  const writeBtn = $('#testWriteBtn');
+  const result = $('#testResult');
+  const input = $('#testInput');
+  result.hidden = true; result.textContent = ''; result.className = 'test-result';
+  // Gate grading until the learner has produced an answer.
+  $('.action-row').style.display = 'none';
+
+  if (card.type === 'character') {
+    inputRow.hidden = true;
+    writeBtn.hidden = false;
+    writeBtn.textContent = '✍︎ Write it from memory';
+  } else {
+    writeBtn.hidden = true;
+    inputRow.hidden = false;
+    input.value = '';
+    input.disabled = false;
+    // focus after the render settles (mobile keyboards need a real gesture,
+    // so this is best-effort and harmless if it no-ops).
+    setTimeout(() => { try { input.focus(); } catch (e) {} }, 50);
+  }
+}
+
+// Check a typed-pinyin answer against the card. Tone-insensitive match counts
+// as correct; we still tell the learner whether their tones were exact.
+function checkPinyinAnswer() {
+  if (state.mode !== 'test' || state.testAnswered) return;
+  const card = state.deck[state.index];
+  if (!card || card.type === 'character') return;
+  const input = $('#testInput');
+  const guess = (input.value || '').trim();
+  if (!guess) return;
+  const want = card.pinyin || '';
+  const normGuess = normPinyin(guess).replace(/\s+/g, '');
+  const normWant  = normPinyin(want).replace(/\s+/g, '');
+  // tone-number input (ni3 hao3) → strip digits for the toneless compare
+  const normGuessNoNum = normGuess.replace(/[0-9]/g, '');
+  const correct = normGuessNoNum === normWant && normWant.length > 0;
+  revealTestAnswer(card, correct, want);
+}
+
+// Reveal the answer on the card and show the verdict, then open grading.
+function revealTestAnswer(card, correct, answerText) {
+  state.testAnswered = true;
+  const result = $('#testResult');
+  const input = $('#testInput');
+  const fp = $('#cardFrontPy');
+  if (input) input.disabled = true;
+  // Fill the answer in on the FRONT face (the card never flips in test mode).
+  if (card.type === 'character') {
+    $('#cardChinese').textContent = card.front_zh;
+    $('#cardChinese').setAttribute('lang', 'zh-CN');
+  }
+  if (fp) { fp.textContent = card.pinyin || ''; fp.hidden = !card.pinyin; }
+  $('#cardHint').textContent = card.english || '';
+  if (result) {
+    result.hidden = false;
+    result.className = 'test-result ' + (correct ? 'is-correct' : 'is-wrong');
+    result.innerHTML = correct
+      ? `<span class="test-result__mark">✓</span> Correct — <b>${escapeHTML(answerText)}</b>`
+      : `<span class="test-result__mark">✗</span> Answer: <b>${escapeHTML(answerText)}</b>`;
+  }
+  // Pre-grade hint: correct → Good is the obvious press; wrong → Again.
+  $('.action-row').style.display = '';
+  announce(correct ? 'Correct' : `Incorrect. Answer ${answerText}`);
+  // Let them hear it now.
+  if (state.settings.autoplay) playCardAudio({ quiet: true });
 }
 
 // Keep the visually-hidden face out of the accessibility tree —
@@ -848,6 +972,9 @@ function normPinyin(s) {
 function openWriter(ch, py, en) {
   const dlg = $('#writerDialog');
   if (!dlg) return;
+  // A blind challenge may have hidden these — restore for normal practice.
+  const ab = $('#writerAnimate'); if (ab) ab.style.display = '';
+  const qb = $('#writerQuiz');    if (qb) qb.style.display = '';
   $('#writerChar').textContent = ch;
   $('#writerSubtitle').textContent = [py, en].filter(Boolean).join(' · ');
   $('#writerStatus').textContent = 'Tap Show strokes to watch, or Trace to practice.';
@@ -911,10 +1038,72 @@ function closeWriter() {
   state.writer = null;
   state.writerChar = null;
   $('#writerStage').innerHTML = '';
+  // Restore the watch/trace buttons in case a blind challenge hid them.
+  const ab = $('#writerAnimate'); if (ab) ab.style.display = '';
+  const qb = $('#writerQuiz');    if (qb) qb.style.display = '';
+}
+
+// Test mode: a BLIND writing challenge — no outline, no character shown.
+// You must produce the strokes from memory; passing reveals the answer.
+function openWriterChallenge(card) {
+  const dlg = $('#writerDialog');
+  if (!dlg) return;
+  const ch = card.front_zh;
+  $('#writerChar').textContent = '？';
+  $('#writerSubtitle').textContent = [card.pinyin, card.english].filter(Boolean).join(' · ');
+  $('#writerStatus').textContent = 'Draw the character stroke by stroke.';
+  $('#writerStage').innerHTML = '';
+  state.writerChar = ch; state.writer = null;
+  const ab = $('#writerAnimate'); if (ab) ab.style.display = 'none';
+  const qb = $('#writerQuiz');    if (qb) qb.style.display = 'none';
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', 'open');
+  setTimeout(() => startChallenge(ch, card), 80);
+}
+function startChallenge(ch, card) {
+  if (!window.HanziWriter) {
+    $('#writerStatus').textContent = 'Loading stroke-order library…';
+    let tries = 0;
+    const iv = setInterval(() => {
+      if (window.HanziWriter) { clearInterval(iv); startChallenge(ch, card); }
+      else if (++tries > 30) { clearInterval(iv); $('#writerStatus').textContent = 'Could not load stroke data.'; }
+    }, 200);
+    return;
+  }
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (document.documentElement.getAttribute('data-theme') !== 'light'
+        && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  try {
+    state.writer = window.HanziWriter.create('writerStage', ch, {
+      width: 280, height: 280, padding: 12,
+      showOutline: false, showCharacter: false, drawingWidth: 30,
+      strokeColor:  isDark ? '#F0EBDD' : '#1B1A18',
+      radicalColor: '#B43A2E', highlightColor: '#B43A2E',
+      drawingColor: isDark ? '#F0EBDD' : '#1B1A18',
+      onLoadCharDataError: () => { $('#writerStatus').textContent = `No stroke data for "${ch}".`; },
+    });
+    state.writer.quiz({
+      showHintAfterMisses: 3,
+      onMistake: () => { $('#writerStatus').textContent = 'Try that stroke again…'; },
+      onCorrectStroke: ({ strokesRemaining }) => {
+        $('#writerStatus').textContent = strokesRemaining > 0
+          ? `${strokesRemaining} stroke${strokesRemaining === 1 ? '' : 's'} to go.` : 'Last stroke!';
+      },
+      onComplete: ({ totalMistakes }) => {
+        const pass = totalMistakes <= 1;
+        $('#writerChar').textContent = ch;
+        $('#writerStatus').textContent = pass
+          ? '✓ Nicely written! Close to grade it.'
+          : `Done — ${totalMistakes} mistakes. Close and mark it Again.`;
+        if (!state.testAnswered) revealTestAnswer(card, pass, ch);
+      },
+    });
+  } catch (e) { $('#writerStatus').textContent = 'Could not start the writing challenge.'; }
 }
 
 function flipCard() {
   if (!state.deck.length || state.finished) return;
+  if (state.mode === 'test') return;   // test mode reveals via Check / Write, not a flip
   state.flipped = !state.flipped;
   const c = $('#card');
   c.classList.toggle('is-flipped', state.flipped);
@@ -1078,6 +1267,21 @@ function bindGlobalEvents() {
   $('#audioBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     playCardAudio();
+  });
+
+  // Test mode controls
+  const testCheck = $('#testCheck');
+  if (testCheck) testCheck.addEventListener('click', (e) => { e.stopPropagation(); checkPinyinAnswer(); });
+  const testInput = $('#testInput');
+  if (testInput) testInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); checkPinyinAnswer(); }
+  });
+  const testWriteBtn = $('#testWriteBtn');
+  if (testWriteBtn) testWriteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const card = state.deck[state.index];
+    if (card) openWriterChallenge(card);
   });
 
   $('#btnPrev').addEventListener('click', prevCard);
